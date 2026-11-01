@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mundo Vivo — portfólio do jogo</title>
+<meta name="description" content="Mundo Vivo: simulador de mundo vivo em pixel art, no navegador e no Android.">
+<meta property="og:image" content="imagens/mapa-mundo.png">
+<style>
+:root{--bg:#11181c;--bg2:#182227;--card:#1f2b31;--line:#2e3d44;--tx:#e8eef0;--mut:#9fb2b8;--ac:#8bd450;--ac2:#4fb3e8}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--ac2)}.w{max-width:1080px;margin:0 auto;padding:0 16px}
+header.hero{position:relative;min-height:520px;display:flex;align-items:flex-end;background:url(imagens/mapa-mundo.png) center/cover;image-rendering:pixelated}
+header.hero:before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(17,24,28,.15),rgba(17,24,28,.75) 55%,var(--bg))}
+.hero .w{position:relative;padding-bottom:40px;width:100%}h1{font-size:clamp(40px,8vw,72px);margin:0;line-height:1}
+.tag{font-size:clamp(17px,2.4vw,21px);color:#d6e2e5;max-width:680px;margin:14px 0 24px}
+.btns{display:flex;gap:12px;flex-wrap:wrap}.btn{display:inline-block;padding:13px 22px;border-radius:10px;font-weight:700;text-decoration:none;color:#0e1a10;background:var(--ac)}
+.btn.b2{background:transparent;color:var(--tx);border:1px solid #6d8288}.btn:hover{filter:brightness(1.1)}
+section{padding:56px 0;border-top:1px solid var(--line)}h2{font-size:28px;margin:0 0 20px}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}.facts div{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:14px}
+.facts b{display:block;color:var(--mut);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px}
+.card .ic{font-size:28px}.card h3{margin:6px 0 4px;font-size:18px}.card p{margin:0;color:var(--mut);font-size:15px}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+figure img{width:100%;aspect-ratio:16/10;object-fit:cover;display:block;image-rendering:pixelated}figcaption{padding:10px 14px;font-size:14px;color:var(--mut)}
+table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid var(--line);padding:9px 8px;text-align:left}th{color:var(--mut);font-size:14px}
+kbd{background:#2b3940;border:1px solid #435760;border-radius:5px;padding:1px 6px;font-size:14px}
+ul.tl{list-style:none;padding:0;margin:0}ul.tl li{display:flex;gap:16px;padding:12px 0;border-bottom:1px solid var(--line)}
+ul.tl .v{flex:0 0 78px;font-weight:800;color:var(--ac);font-size:18px}ul.tl p{margin:0 0 2px}ul.tl a{font-size:14px}
+.docs{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}.doc{display:flex;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;text-decoration:none;color:var(--tx)}.doc:hover{border-color:var(--ac2)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:28px}@media(max-width:760px){.two{grid-template-columns:1fr}}
+footer{padding:36px 0;color:var(--mut);font-size:14px;border-top:1px solid var(--line)}
+</style></head><body>
+<header class="hero"><div class="w">
+<h1>🌎 Mundo Vivo</h1>
+<p class="tag">Molde o terreno e veja a vida acontecer. Bichos nascem e caçam, pessoas formam famílias, erguem vilas, fazem guerra, revolução, eleição e revolução industrial. Quando quiser, entre na pele de qualquer um deles.</p>
+<div class="btns"><a class="btn" href="jogar/">▶ Jogar no navegador</a><a class="btn b2" href="apk/MundoVivo-v37.apk">📱 Baixar APK (Android)</a><a class="btn b2" href="https://github.com/tannya1977tavares-cyber/Mundo-vivo">Código no GitHub</a></div>
+</div></header>
+<main class="w">
+<section><h2>Sobre o jogo</h2>
+<div class="facts"><div><b>Gênero</b>Simulação / sandbox / god game</div><div><b>Plataformas</b>Navegador e Android 7+</div><div><b>Tecnologia</b>HTML, JavaScript e Canvas num arquivo só, sem internet</div><div><b>Versão atual</b>v37 · novembro de 2026</div><div><b>Autor</b>Bruno, com desenvolvimento assistido por IA</div></div>
+</section>
+<section><h2>Sistemas do mundo</h2><div class="grid"><div class="card"><div class="ic">🗺️</div><h3>Mapas</h3><p>IA cartógrafa testa vários mapas e fica com o melhor. 7 modelos, até 240 × 180.</p></div>
+<div class="card"><div class="ic">🌳</div><h3>Natureza</h3><p>Biomas brasileiros com cadeia alimentar: herbívoro, espalhador de sementes e predador. Pode haver extinção.</p></div>
+<div class="card"><div class="ic">🐉</div><h3>Criaturas</h3><p>Dragões com toca e ovos, lobisomens na lua cheia, monstros e chefes de caverna.</p></div>
+<div class="card"><div class="ic">👪</div><h3>Gente</h3><p>Necessidades, família, sonhos, personalidade, XP e nível de ofício, velhice e herança.</p></div>
+<div class="card"><div class="ic">🧬</div><h3>Evolução</h3><p>Os melhores de cada ofício passam os genes para a geração seguinte.</p></div>
+<div class="card"><div class="ic">💰</div><h3>Economia</h3><p>Livre mercado: quem produz vende na praça. Preço por oferta e procura, 3 impostos do rei.</p></div>
+<div class="card"><div class="ic">🏘️</div><h3>Cidades</h3><p>Do barraco ao casarão vitoriano. Sobrados geminados em ruas, praças, postes e circo.</p></div>
+<div class="card"><div class="ic">👕</div><h3>Roupas e avatar</h3><p>Conjuntos por profissão e classe social. Editor completo de personagem.</p></div>
+<div class="card"><div class="ic">⚔️</div><h3>Combate</h3><p>Guildas elementais, 24 habilidades, duelos de espada e guerras entre reinos.</p></div>
+<div class="card"><div class="ic">🏛️</div><h3>Política</h3><p>Revolta, revolução, queda do rei, capitalismo ou socialismo, eleições, impeachment e corrupção.</p></div>
+<div class="card"><div class="ic">⛪</div><h3>Religião</h3><p>Calendário de cultos, altares e sacrifícios.</p></div>
+<div class="card"><div class="ic">⛵</div><h3>Mar</h3><p>Portos, estaleiros, navios com tripulação, andar no convés e combate naval.</p></div>
+<div class="card"><div class="ic">🕳️</div><h3>Cavernas</h3><p>Exploração, monstros, chefes e tesouros.</p></div>
+<div class="card"><div class="ic">🏭</div><h3>Indústria</h3><p>Minas por nível, 14 fábricas e 13 itens novos, do aço ao jornal da cidade.</p></div>
+<div class="card"><div class="ic">🚂</div><h3>Transporte</h3><p>Ferrovias com pontes e túneis, estações com relógio, trens, avenidas, carros e carroças.</p></div></div></section>
+<section><h2>Galeria</h2><div class="gal"><figure><a href="imagens/foto-bairro.png"><img src="imagens/foto-bairro.png" alt="Bairro de sobrados geminados (v37)" loading="lazy"></a><figcaption>Bairro de sobrados geminados (v37)</figcaption></figure>
+<figure><a href="imagens/foto-fabricas.png"><img src="imagens/foto-fabricas.png" alt="As 14 fábricas (v37)" loading="lazy"></a><figcaption>As 14 fábricas (v37)</figcaption></figure>
+<figure><a href="imagens/foto-estacao.png"><img src="imagens/foto-estacao.png" alt="Estação com torre do relógio (v36)" loading="lazy"></a><figcaption>Estação com torre do relógio (v36)</figcaption></figure>
+<figure><a href="imagens/foto-rede.png"><img src="imagens/foto-rede.png" alt="Rede ferroviária ligando as cidades (v36)" loading="lazy"></a><figcaption>Rede ferroviária ligando as cidades (v36)</figcaption></figure>
+<figure><a href="imagens/foto-avenida-cancela.png"><img src="imagens/foto-avenida-cancela.png" alt="Avenida com passagem de nível (v36)" loading="lazy"></a><figcaption>Avenida com passagem de nível (v36)</figcaption></figure>
+<figure><a href="imagens/reino-altamar.png"><img src="imagens/reino-altamar.png" alt="Reino de Altamar" loading="lazy"></a><figcaption>Reino de Altamar</figcaption></figure>
+<figure><a href="imagens/v27-antes-depois.png"><img src="imagens/v27-antes-depois.png" alt="Roupas e casas: antes e depois (v27)" loading="lazy"></a><figcaption>Roupas e casas: antes e depois (v27)</figcaption></figure>
+<figure><a href="imagens/v25-antes-depois.png"><img src="imagens/v25-antes-depois.png" alt="Mais pixels: antes e depois (v25)" loading="lazy"></a><figcaption>Mais pixels: antes e depois (v25)</figcaption></figure></div></section>
+<section class="two"><div><h2>Como jogar</h2>
+<p>No <b>modo deus</b> você usa pincéis de terreno, natureza, chuva e animais. No <b>🎮 modo jogador</b> cria seu personagem, controla qualquer NPC ou vira <b>semideus</b> com os 4 elementos. O painel <b>⚙️</b> liga e desliga cada mecanismo do mundo.</p>
+<p>Os mundos ficam salvos no próprio navegador ou celular.</p></div>
+<div><table><tr><th>Ação</th><th>Teclado</th></tr>
+<tr><td>Andar</td><td><kbd>WASD</kbd> / setas</td></tr><tr><td>Ataques</td><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td></tr>
+<tr><td>Dash · pulo · pulo+dash</td><td><kbd>Q</kbd> <kbd>C</kbd> <kbd>X</kbd></td></tr><tr><td>Bloquear / esquivar</td><td><kbd>V</kbd></td></tr>
+<tr><td>Trocar elemento</td><td><kbd>Z</kbd></td></tr><tr><td>Poção de vida</td><td><kbd>H</kbd></td></tr></table>
+<p style="color:var(--mut);font-size:14px">No celular, joystick e botões na tela, que você pode mover e redimensionar.</p></div></section>
+<section><h2>Histórico de versões</h2><ul class="tl"><li><span class="v">v37</span><div><p>Uma casa por casal, cidades densas com sobrados, 8 fábricas e 13 itens novos</p><a href="versoes/mundo-vivo-v37.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v37-relatorio.md">relatório</a></div></li>
+<li><span class="v">v36</span><div><p>Transporte: trilhos inteligentes, estações, trens, avenidas e carros</p><a href="versoes/mundo-vivo-v36.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v36-relatorio.md">relatório</a></div></li>
+<li><span class="v">v35</span><div><p>Correção de bugs e primeira versão Android</p><a href="versoes/mundo-vivo-v35.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v35-relatorio.md">relatório</a></div></li>
+<li><span class="v">v34</span><div><p>Revolução industrial: casas de tijolo, minas, fábricas, ferrovia, inventário</p><a href="versoes/mundo-vivo-v34.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v34-relatorio.md">relatório</a></div></li>
+<li><span class="v">v33</span><div><p>NPCs com os genes dos melhores (evolução em 100 sessões)</p><a href="versoes/mundo-vivo-v33.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v33-relatorio.md">relatório</a></div></li>
+<li><span class="v">v32</span><div><p>Livre mercado, gente, reinos e natureza</p><a href="versoes/mundo-vivo-v32.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v32-relatorio.md">relatório</a></div></li>
+<li><span class="v">v31</span><div><p>Jogo mais leve, revolução, queda do rei e democracia</p><a href="versoes/mundo-vivo-v31.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v31-relatorio.md">relatório</a></div></li>
+<li><span class="v">v30</span><div><p>Andar no convés, tripulação e poderes a bordo</p><a href="versoes/mundo-vivo-v30.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v30-relatorio.md">relatório</a></div></li>
+<li><span class="v">v29</span><div><p>Navios, portos, mapas novos e combate no mar</p><a href="versoes/mundo-vivo-v29.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v29-relatorio.md">relatório</a></div></li>
+<li><span class="v">v28</span><div><p>Botões editáveis, duelo, altares, praças e circo</p><a href="versoes/mundo-vivo-v28.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v28-relatorio.md">relatório</a></div></li>
+<li><span class="v">v27</span><div><p>Roupas, avatar, casas por classe, mercado, calendário e cavernas</p><a href="versoes/mundo-vivo-v27.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v27-relatorio.md">relatório</a></div></li>
+<li><span class="v">v26</span><div><p>Proporções revistas</p><a href="versoes/mundo-vivo-v26.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v26-relatorio.md">relatório</a></div></li>
+<li><span class="v">v25</span><div><p>300% mais pixels</p><a href="versoes/mundo-vivo-v25.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v25-relatorio.md">relatório</a></div></li>
+<li><span class="v">v24</span><div><p>50% mais pixels</p><a href="versoes/mundo-vivo-v24.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v24-relatorio.md">relatório</a></div></li>
+<li><span class="v">v23</span><div><p>XP de assassinato e menu com ícones</p><a href="versoes/mundo-vivo-v23.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v23-relatorio.md">relatório</a></div></li>
+<li><span class="v">v22</span><div><p>Guerra para todo mundo</p><a href="versoes/mundo-vivo-v22.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v22-relatorio.md">relatório</a></div></li>
+<li><span class="v">v21</span><div><p>Ajustes sobre a v20</p><a href="versoes/mundo-vivo-v21.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v21-relatorio.md">relatório</a></div></li>
+<li><span class="v">v20</span><div><p>Guildas elementais, combate, controles e loja de poções</p><a href="versoes/mundo-vivo-v20.html">jogar esta versão</a> · <a href="https://github.com/tannya1977tavares-cyber/Mundo-vivo/blob/main/relatorios/v20-relatorio.md">relatório</a></div></li>
+<li><span class="v">v18–19</span><div><p>Versões anteriores</p><a href="versoes/mundo-vivo-v19.html">v19</a> · <a href="versoes/mundo-vivo-v18.html">v18</a> · <a href="versoes/mundo-vivo-original.html">original</a></div></li></ul></section>
+<section><h2>Documentos de design</h2><div class="docs"><a class="doc" href="design/combate-design.pdf">📄 <span>Combate, golpes e monstros</span></a>
+<a class="doc" href="design/avatar-design.pdf">📄 <span>Editor de personagem</span></a>
+<a class="doc" href="design/roupas-design.pdf">📄 <span>Roupas</span></a>
+<a class="doc" href="design/casas-design.pdf">📄 <span>Casas e reformas</span></a>
+<a class="doc" href="design/cavernas-design.pdf">📄 <span>Cavernas</span></a>
+<a class="doc" href="design/ciclo-mercado.pdf">📄 <span>Ciclo do mercado</span></a>
+<a class="doc" href="design/calendario-cultos.pdf">📄 <span>Calendário e cultos</span></a>
+<a class="doc" href="design/altares-sacrificios.pdf">📄 <span>Altares e sacrifícios</span></a>
+<a class="doc" href="design/cidade-pracas-circo.pdf">📄 <span>Cidade, praças e circo</span></a>
+<a class="doc" href="design/navios-mapas-design.pdf">📄 <span>Navios e mapas</span></a>
+<a class="doc" href="design/sociedade-revolucao-design.pdf">📄 <span>Sociedade e revolução</span></a>
+<a class="doc" href="design/jogo-leve-sociedades-design.pdf">📄 <span>Desempenho e sociedades</span></a></div></section>
+<section><h2>Instalar no Android</h2><ol><li>Baixe o <a href="apk/MundoVivo-v37.apk">MundoVivo-v37.apk</a> no celular.</li><li>Toque no arquivo e permita instalar apps desta fonte.</li><li>Pronto: funciona sem internet. Cada versão nova instala por cima sem perder os mundos salvos.</li></ol></section>
+</main>
+<footer><div class="w">© 2026 Bruno · Mundo Vivo</div></footer>
+</body></html>

@@ -1,0 +1,40 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.bruno.mundovivo'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.bruno.mundovivo'
+        minSdk 24
+        targetSdk 34
+        versionCode 37          // aumente a cada APK novo (36, 37...) para o celular aceitar a atualização
+        versionName '37'
+    }
+
+    signingConfigs {
+        mundovivo {
+            storeFile file('../ferramentas/mundovivo-chave.p12')
+            storePassword System.getenv('MUNDOVIVO_SENHA')
+            keyAlias 'mundovivo'
+            keyPassword System.getenv('MUNDOVIVO_SENHA')
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.mundovivo
+        }
+        debug {
+            signingConfig signingConfigs.mundovivo
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
