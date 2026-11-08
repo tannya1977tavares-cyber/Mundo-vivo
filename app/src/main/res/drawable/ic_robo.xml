@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Robozinho laranja do Brun'Obot (área segura: 108x108, conteúdo no centro 66x66) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- antena -->
+    <path android:fillColor="#FF7A1A" android:pathData="M52,28h4v8h-4z" />
+    <path android:fillColor="#FF7A1A" android:pathData="M54,22m-4,0a4,4 0,1 1,8 0a4,4 0,1 1,-8 0" />
+    <!-- cabeça -->
+    <path android:fillColor="#FF7A1A" android:pathData="M36,36h36a6,6 0,0 1,6 6v26a6,6 0,0 1,-6 6h-36a6,6 0,0 1,-6 -6v-26a6,6 0,0 1,6 -6z" />
+    <!-- olhos -->
+    <path android:fillColor="#171A21" android:pathData="M45,52m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <path android:fillColor="#171A21" android:pathData="M63,52m-5,0a5,5 0,1 1,10 0a5,5 0,1 1,-10 0" />
+    <!-- boca -->
+    <path android:fillColor="#171A21" android:pathData="M44,63h20v4h-20z" />
+    <!-- orelhas -->
+    <path android:fillColor="#FF7A1A" android:pathData="M24,48h4v14h-4z" />
+    <path android:fillColor="#FF7A1A" android:pathData="M80,48h4v14h-4z" />
+</vector>

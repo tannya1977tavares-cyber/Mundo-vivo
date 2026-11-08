@@ -1,0 +1,51 @@
+name: Brun'Obot APK
+
+on:
+  push:
+    branches: [brunobot-android]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Montar APK
+        run: |
+          set -o pipefail
+          gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
+
+      - name: Publicar APK
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk BrunObot.apk
+          gh release delete brunobot-apk --yes --cleanup-tag || true
+          gh release create brunobot-apk BrunObot.apk \
+            --target "${GITHUB_SHA}" \
+            --title "Brun'Obot para Android" \
+            --notes "APK do Brun'Obot (build ${GITHUB_SHA::7}). Baixe BrunObot.apk no celular e instale." \
+            --prerelease
+
+      - name: Publicar log de erro
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (grep -E "^e: |error:|FAILURE|What went wrong" -A3 build.log | head -150; echo; echo ----; tail -c 20000 build.log) > build-log.txt || echo "sem log" > build-log.txt
+          gh release delete brunobot-log --yes --cleanup-tag || true
+          gh release create brunobot-log build-log.txt --target "${GITHUB_SHA}" --title "brunobot build log" --notes "falhou" --prerelease
