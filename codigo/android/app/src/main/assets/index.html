@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Mundo Vivo v39</title>
+<title>Mundo Vivo v40</title>
 <style>
 /* Visual: painel escuro de "mesa de deus" em volta de um mapa em pixel art; verde-broto como acento. */
 :root{
@@ -7568,7 +7568,7 @@ function renderWorld(now){
   else if(!c.tree && c.regrow>0 && c.regrow<70 && !c.build) items.push({y:y+.9,k:1,x,cy:y});
   if(c.ore && c.ore!=='stone' && cellPx>=9) glints.push([x,y,c.ore]);
   if(c.build==='tower'){ items.push({y:y+.95,k:4,x,cy:y}); towersVis.push([x,y]); }
-  if(c.build==='castle' && c.anchor===y*state.w+x) items.push({y:y+2.97,k:6,x,cy:y});
+  if(c.build==='castle' && c.anchor===y*state.w+x && !(state.houses[c.anchor]&&state.houses[c.anchor].povo)) items.push({y:y+2.97,k:6,x,cy:y}); // v40: castelo com marca de povo é desenhado pela arte nova
  }
  for(const i of fires){ const x=i%state.w, y=(i/state.w)|0; if(x>=cx0&&x<=cx1&&y>=cy0&&y<=cy1) items.push({y:y+.7,k:2,x,cy:y}); }
  for(const a in state.houses){ const H=state.houses[a]; if(H.type!=='hut'||v27Std(H)) continue; const x=a%state.w, y=(a/state.w)|0; if(x<cx0-2||x>cx1+2||y<cy0-1||y>cy1+3) continue; items.push({y:y+.96,k:7,x,cy:y,H,a:+a}); } // v26: cabanas
@@ -24259,6 +24259,291 @@ try{ limites37(); }catch(err){}
   if(n.length||v.atrop39) $('infoLines').insertAdjacentHTML('beforeend',`<div><b>🚦 Trânsito:</b> ${n.length-c} carroça${n.length-c===1?'':'s'}${c?` e ${c} carro${c>1?'s':''}`:''} nas ruas${v.atrop39?` · 🚑 ${v.atrop39} atropelamento${v.atrop39>1?'s':''}`:''}</div>`); }catch(err){} }; }
 window.MVq39={anjoOrdem:t=>anjoOrdem(t),get q(){return q39;},qOrd39,qOrdem39,qTick39,tr39,trTick39,nasce39,becos39,rua39,atropela39,recurso39,inimigo39,get cellPx(){return cellPx;}};
 window.MVdbg={farmGrow,farmSz,farmSendOrder,farmExpTick,farmReorgCheck,miniPenPlace,buildMiniPen,mpenOf,farmHerd,farmPastors,farmPenOf,farmInPen,openFarm,farmCommand,bandCommand,guildCommand,dragonCommand,v17Tick,miniPenDaily,farmHireOne,farmOffer,farmAdults,cityGateSpot,landPrice,farmFence,farmChest,possess,clearRingFences,campSpot,villageAbandonTick,homeOf,annex,farmRect,farmPlan,farmBosses,farmNextBuild,farmRoles,hireGuards,guildTick,banditTick,farmWorldTick,academyTick,academySpot,studyThink,dreamOf,foundGuild,guildSpot,farmDoUp,cartThink,troughOf,penBuilt,penCap,farmMigrate,get farmEpoch(){return farmEpoch;},bumpFarm:()=>farmEpoch++,openVillage,openHouse,kingCommand,homeSpend,farmAbsorb,farmGrab,farmBuy,farmAnimals,farmStock,comfortOf,roomSize,animalPlayerAct,jobWant,hasPowers,castSpin,castBreath,powerHostile,highwayTick,hwRoute,get jutsus(){return jutsus;},farmRect,farmFence,farmShakedown,mercTick,hireMercFor,mercPrice,priceOf,addXP,load,save,isWildDragon,wildInit,dragonRevenge,dragonHuntTick,markAggressor,decideWar,borderDispute,gateLeft,gateMax,hitGate,chiefCape,raidOf,tameWildDragon,get WANTED(){return WANTED;},paint,doAction,computeTarget,killEnt,hurt,rebuildGrid,exitPlay,DRAGON,fireAt,hatchEgg,dragonEggEvents,groundOK,dStage,dAdult,get fireballs(){return fireballs;},get blasts(){return blasts;},onTap,stats:dbgStats,escapeTrap,setTask,clearBuild,villageById,npcState,patrolPoints,gateInside,hermitSpot,launchRaid,expandVillage,entSprite,ART,SPECIES,tapWorld:(x,y)=>onTap({x:(x-viewL)*cellPx,y:(y-viewT)*cellPx}),toScreen:(x,y)=>({x:(x-viewL)*cellPx,y:(y-viewT)*cellPx}),updateContext,feedPet,spawn,deathLog,petsOf,tameAnimal,villageTick,setBuild,enterHouse,exitHouse,nearHouseDoor,player,possess,findPath,passable,get inLay(){return inLay;}};
+/* =====================================================================
+   v40 · 40.1 · BASE VISUAL DAS CASAS POR POVO
+   Só desenho: casas com marca de povo (H.povo) usam a grade HOUSE_ART com a paleta
+   de PEOPLES; casas sem marca continuam com o desenho de antes.
+   Não muda packCell, save, versão do save nem a lógica de construção.
+   ===================================================================== */
+/* ===== v40 · HOUSE_ART · 12 desenhos (4 níveis × 3 variantes) ===== */
+const HOUSE_ART = {
+  cabana: [
+    [ // A · Sapê
+      "...rr...",
+      "..rrrr..",
+      ".rrrrrr.",
+      "rrrrrrrr",
+      "wwwkkwww",
+      "wwwkkwww"],
+    [ // B · Tenda de couro com aba
+      ".rrrrrr.",
+      "rrrrrrrr",
+      "rrrrkkrr",
+      "rrrrkkrr",
+      "gggggggg"],
+    [ // C · Toca com teto de grama
+      "........",
+      ".gggggg.",
+      "gggggggg",
+      "gwwkkwwg",
+      "gwwwwwwg",
+      "gggggggg"]
+  ],
+  casa: [
+    [ // A · Sobrado com janelas
+      "..rrrrrr..",
+      ".rrrrrrrr.",
+      "rrrrrrrrrr",
+      "wwwwwwwwww",
+      "wfwwwwwfww",
+      "wfwwwwwfww",
+      "wwwwkkwwww",
+      "wwwwkkwwww"],
+    [ // B · Casa com varanda
+      "...rrrr...",
+      "..rrrrrr..",
+      ".rrrrrrrr.",
+      "rrrrrrrrrr",
+      "wwwwwwwwww",
+      "wfwwwwfwww",
+      "pwwwwwwwwp",
+      "pwwkkwwwwp"],
+    [ // C · Casa com chaminé
+      ".....cc...",
+      "..rrrcrr..",
+      ".rrrrcrrr.",
+      "rrrrrrrrrr",
+      "wwwwwwwwww",
+      "wwfwwwfwww",
+      "wwwwwwwwww",
+      "wwwkkwwwww"]
+  ],
+  casarao: [
+    [ // A · Solar com torre
+      ".....tt.....",
+      "....tttt....",
+      "rrrrrrrrrrrr",
+      "rrrrrrrrrrrr",
+      "wwwwwwwwwwww",
+      "wfwwfwwfwwfw",
+      "wwwwwwwwwwww",
+      "wfwwfwwfwwfw",
+      "wwwwwkkwwwww",
+      "gggggkkggggg"],
+    [ // B · Galeria com colunas
+      "....rrrrrr..",
+      "..rrrrrrrrrr",
+      "rrrrrrrrrrrr",
+      "wwwwwwwwwwww",
+      "wfwfwfwfwfwf",
+      "wwwwwwwwwwww",
+      "pwwwpwwwpwwp",
+      "pwwwpwwwpwwp",
+      "pwwwpwkkpwwp",
+      "gggggggggggg"],
+    [ // C · Solar com cúpula
+      ".....oo.....",
+      "....oooo....",
+      "...rrrrrr...",
+      "rrrrrrrrrrrr",
+      "wwwwwwwwwwww",
+      "wfwwfwwfwwfw",
+      "wwwwwwwwwwww",
+      "wwfwwwwwwfww",
+      "wwwwwkkwwwww",
+      "gggggkkggggg"]
+  ],
+  castelo: [
+    [ // A · Torre de menagem
+      ".....tt.......",
+      "....tttt......",
+      "gmgmgmgmgmgmgm",
+      "gggggggggggggg",
+      "gwwwwwwwwwwwwg",
+      "gwfwwfwwfwwfwg",
+      "gwwwwwwwwwwwwg",
+      "gwwwwwwwwwwwwg",
+      "gwwwwwkkwwwwwg",
+      "gggggggggggggg"],
+    [ // B · Fortaleza com quatro torreões
+      "tt..........tt",
+      "ttggggggggggtt",
+      "ggwwwwwwwwwwgg",
+      "ggwfwwwwwwfwgg",
+      "gggwwwwwwwwggg",
+      "gggwwwwwwwwggg",
+      "ggggggkkgggggg",
+      "ggggggkkgggggg"],
+    [ // C · Palácio com cúpulas
+      "...oo....oo...",
+      "..oooo..oooo..",
+      "....rrrrrr....",
+      "rrrrrrrrrrrrrr",
+      "wwwwwwwwwwwwww",
+      "wfwfwfwfwfwfwf",
+      "wwwwwwwwwwwwww",
+      "gwfwwfwwfwwfwg",
+      "gwwwwwwkkwwwwg",
+      "ggggggkkgggggg"]
+  ]
+};
+
+/* ===== v40 · PEOPLES · paletas e marcas ===== */
+const PEOPLES = {
+  ingles: {
+    name: "Inglês", era: "Vila",
+    levels: ["Cabana", "Casa", "Casarão", "Castelo"],
+    pal: { r:"#7a4a2b", t:"#5a3420", o:"#7a8fa6", c:"#6b5040", w:"#c9a77a", g:"#8a8478", f:"#ffe08a", k:"#3a2414", p:"#4a3020", m:"#8a8478", a:"#e8b84a" },
+    mark: "viga em X (faixa de cor a) no meio da fachada"
+  },
+  cigano: {
+    name: "Cigano", era: "Vila",
+    levels: ["Tenda", "Casa de lona", "Casarão de feira", "Fortaleza do clã"],
+    pal: { r:"#2f6b5a", t:"#1f4a3e", o:"#c0392b", c:"#5b4636", w:"#b5563a", g:"#7a6a58", f:"#ffd27a", k:"#2a1a14", p:"#8a4a2a", m:"#7a6a58", a:"#e0a526" },
+    mark: "franjas e bandeirolas triangulares (a) na cumeeira e na porta"
+  },
+  judeu: {
+    name: "Judeu", era: "Vila",
+    levels: ["Abrigo", "Casa de pedra", "Casarão com sinagoga", "Castelo da comunidade"],
+    pal: { r:"#4a5a8a", t:"#34406a", o:"#f2f2ea", c:"#6a6a70", w:"#d8cfbf", g:"#a8a090", f:"#fff3c4", k:"#3a3028", p:"#b8ad98", m:"#a8a090", a:"#2f5fa8" },
+    mark: "mezuzá (retângulo 1x3 em a) ao lado da porta; janela em arco"
+  },
+  russo: {
+    name: "Russo", era: "Vila",
+    levels: ["Izba", "Casa de toras", "Casarão de cúpula", "Kremlin local"],
+    pal: { r:"#3b5563", t:"#2a3f4a", o:"#2f7fc0", c:"#5a3a26", w:"#8b5a3c", g:"#6e6a62", f:"#ffe9a8", k:"#3a2010", p:"#6a4026", m:"#6e6a62", a:"#d94b4b" },
+    mark: "cúpula bulbosa (o, cor a) sobre a cumeeira; platibanda entalhada"
+  },
+  brasileiro: {
+    name: "Brasileiro", era: "Vila",
+    levels: ["Choupana", "Casa de cal", "Casarão colonial", "Sobrado da fazenda"],
+    pal: { r:"#b5532d", t:"#8a3e20", o:"#e7d9b8", c:"#7a5a40", w:"#e7d9b8", g:"#9a8a70", f:"#5a8ac0", k:"#4a3020", p:"#7a5030", m:"#9a8a70", a:"#3ea35a" },
+    mark: "faixa de azulejo (a) na base e varanda de madeira"
+  },
+  americano: {
+    name: "Americano", era: "Reino",
+    levels: ["Shack", "Frame house", "Mansão", "Forte"],
+    pal: { r:"#5a5a64", t:"#3e3e48", o:"#9aa8b8", c:"#8a3a2a", w:"#a86b3e", g:"#7a7a72", f:"#fff0c0", k:"#2a2a30", p:"#eaeaea", m:"#7a7a72", a:"#3a6ea5" },
+    mark: "alpendre (p, branco) na frente e chaminé de tijolo (c)"
+  }
+};
+
+/* tipo da casa no jogo → nível da arte */
+const ART_LEVEL = {hut:'cabana', house:'casa', manor:'casarao', castle:'castelo'};
+const ART_LEVELS = ['cabana','casa','casarao','castelo'];
+/* tamanho do "pixel" da grade em cada nível (sprite em 24 px por quadrado, como as casas da v27) */
+const ART_K = {cabana:4, casa:5, casarao:6, castelo:5};
+const ART_TOP = 4; // espaço em cima (em unidades) para cúpula, chaminé e bandeirolas
+const artVariant = a => (((a%state.w)*31 + ((a/state.w)|0)*17) % 3);
+const artPovo = H => (H && H.povo && PEOPLES[H.povo] && ART_LEVEL[H.type]) ? H.povo : null;
+
+/* medidas da grade (fachada, porta, telhado), calculadas uma vez */
+const artGeoCache = new Map();
+function artGeo(grid){
+ let G=artGeoCache.get(grid); if(G) return G;
+ const W=grid[0].length, H=grid.length; G={W,H,wallTop:-1,wallBot:-1,roofTop:-1,roofBot:-1,doorL:-1,doorR:-1,doorTop:-1,wins:[]};
+ for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const ch=grid[y][x];
+  if(ch==='w'){ if(G.wallTop<0) G.wallTop=y; G.wallBot=y; }
+  if(ch==='r'||ch==='t'||ch==='o'){ if(G.roofTop<0) G.roofTop=y; if(ch==='r') G.roofBot=y; }
+  if(ch==='k'){ if(G.doorL<0||x<G.doorL) G.doorL=x; if(x>G.doorR) G.doorR=x; if(G.doorTop<0) G.doorTop=y; }
+  if(ch==='f'&&(y===0||grid[y-1][x]!=='f')) G.wins.push([x,y]); }
+ if(G.wallTop<0){ G.wallTop=Math.max(0,G.doorTop); G.wallBot=H-1; } // tenda: sem parede, a "fachada" é a lona
+ if(G.roofTop<0) G.roofTop=0;
+ if(G.roofBot<0) G.roofBot=Math.max(0,G.wallTop-1);
+ if(G.doorL<0){ G.doorL=G.doorR=W>>1; G.doorTop=H-1; }
+ artGeoCache.set(grid,G); return G;
+}
+
+/* desenha uma casa da grade: g = contexto, sx/sy = canto de cima da grade, k = tamanho do pixel */
+function drawHouseArt(g, level, variant, people, sx, sy, k){
+ const grid=HOUSE_ART[level][variant], P=PEOPLES[people], pal=P.pal, G=artGeo(grid);
+ const F=(x,y,w,h,c)=>{ if(!c||w<=0||h<=0) return; g.fillStyle=c; g.fillRect(Math.round(sx+x*k),Math.round(sy+y*k),Math.max(1,Math.round(w*k)),Math.max(1,Math.round(h*k))); };
+ for(let y=0;y<G.H;y++) for(let x=0;x<G.W;x++){ const ch=grid[y][x]; if(ch!=='.') F(x,y,1,1,pal[ch]); }
+ // sombreado leve: luz na primeira linha do telhado e sombra embaixo do beiral
+ for(let x=0;x<G.W;x++){ const ch=grid[G.roofTop][x]; if(ch==='r'||ch==='t'||ch==='o') F(x,G.roofTop,1,.2,shade(pal[ch],.25)); }
+ if(G.wallTop>0) for(let x=0;x<G.W;x++) if(grid[G.wallTop][x]==='w') F(x,G.wallTop,1,.2,shade(pal.w,-.25));
+ for(let y=0;y<G.H;y++) for(let x=0;x<G.W;x++) if(grid[y][x]==='f'){ F(x+.42,y,.16,1,shade(pal.f,-.35)); }
+ artMark(F, grid, G, people, pal);
+}
+
+/* a marca de cada povo, desenhada por cima da grade */
+function artMark(F, grid, G, people, pal){
+ const a=pal.a, W=G.W, mid=W/2;
+ if(people==='ingles'){ // viga em X no meio da fachada (enxaimel)
+  const y0=G.wallTop, y1=Math.max(G.wallTop+1, G.doorTop>G.wallTop?G.doorTop:G.wallBot), n=Math.max(1,y1-y0), x0=Math.max(0,Math.floor(mid-n/2-.5)), wd=n;
+  for(let i=0;i<=n*4;i++){ const t=i/(n*4); F(x0+t*wd-.1,y0+t*n,.3,.3,a); F(x0+wd-t*wd-.2,y0+t*n,.3,.3,a); }
+  F(0,y0,W,.18,shade(a,-.2)); F(0,y1,W,.18,shade(a,-.2));
+ } else if(people==='cigano'){ // bandeirolas na cumeeira e franja sobre a porta
+  const ry=G.roofTop; let x0=W, x1=0; for(let x=0;x<W;x++){ const ch=grid[ry][x]; if(ch!=='.'){ x0=Math.min(x0,x); x1=Math.max(x1,x); } }
+  F(x0-1,ry-.25,x1-x0+3,.12,'#3a2a1a');
+  for(let x=x0-1,i=0;x<=x1+1;x+=.75,i++){ const c=i%2?pal.o:a; F(x,ry-.15,.6,.25,c); F(x+.12,ry+.1,.36,.25,c); F(x+.24,ry+.35,.12,.2,c); }
+  for(let x=G.doorL-.5,i=0;x<=G.doorR+1;x+=.5,i++) F(x,G.doorTop-.3,.4,i%2?.5:.35,i%2?pal.o:a);
+ } else if(people==='judeu'){ // mezuzá ao lado da porta e janelas em arco
+  F(G.doorR+1.2,G.doorTop+.15,.3,.9,a); F(G.doorR+1.2,G.doorTop+.15,.3,.12,shade(a,.4));
+  for(const [x,y] of G.wins){ F(x,y,.25,.25,pal.w); F(x+.75,y,.25,.25,pal.w); F(x+.25,y-.12,.5,.12,shade(pal.w,-.2)); }
+  F(G.doorL,G.doorTop,.2,.2,pal.w); F(G.doorR+.8,G.doorTop,.2,.2,pal.w);
+ } else if(people==='russo'){ // cúpula bulbosa vermelha sobre a cumeeira e platibanda entalhada
+  const ry=G.roofTop, cx=mid; F(cx-.75,ry-1.2,1.5,.9,a); F(cx-.5,ry-1.55,1,.4,a); F(cx-.25,ry-1.9,.5,.4,a); F(cx-.06,ry-2.6,.12,.75,'#e8c84a'); F(cx-.3,ry-2.35,.6,.1,'#e8c84a');
+  F(cx-.4,ry-.35,.8,.4,shade(a,-.3)); F(cx-.6,ry-1.1,.3,.5,shade(a,.3));
+  const by=G.roofBot+1; for(let x=0;x<W;x++){ if(grid[Math.min(G.H-1,by)][x]==='.') continue; F(x,by,1,.15,a); F(x+.35,by+.15,.3,.2,a); }
+ } else if(people==='brasileiro'){ // barra de azulejo na base e varanda de madeira
+  const y=G.wallBot; for(let x=0;x<W;x++){ if(grid[y][x]!=='w') continue; F(x,y+.55,1,.45,pal.o); F(x+((x%2)?0:.5),y+.55,.5,.22,a); F(x+((x%2)?.5:0),y+.77,.5,.23,a); }
+  const vy=Math.max(G.wallTop,G.doorTop-.25); F(-.2,vy,W+.4,.22,pal.p); F(-.2,vy+.22,W+.4,.08,shade(pal.p,-.3));
+  F(0,vy,.25,G.H-vy,pal.p); F(W-.25,vy,.25,G.H-vy,pal.p); if(W>=10){ F(G.doorL-1.2,vy,.22,G.H-vy,pal.p); F(G.doorR+1,vy,.22,G.H-vy,pal.p); }
+ } else if(people==='americano'){ // alpendre branco na frente e chaminé de tijolo
+  const py=Math.max(G.wallTop,G.doorTop-.35); F(-.3,py,W+.6,.3,pal.p); F(-.3,G.H-.25,W+.6,.25,pal.p);
+  for(let x=-.3;x<=W;x+=Math.max(1.5,W/5)) F(x,py,.22,G.H-py,pal.p);
+  for(let x=0;x<W;x+=.5) if(x<G.doorL-.2||x>G.doorR+1) F(x,G.H-.85,.12,.6,pal.p);
+  const cxh=W-2.2, cy=G.roofTop; F(cxh,cy-1.6,.9,1.8,pal.c); for(let i=0;i<4;i++) F(cxh+(i%2?0:.45),cy-1.5+i*.45,.45,.06,shade(pal.c,-.35)); F(cxh-.1,cy-1.7,1.1,.2,shade(pal.c,-.25));
+ }
+}
+
+/* sprite pronto (24 px por quadrado), com cache */
+const artSpriteCache = new Map();
+function houseArtSprite(level, variant, people, col){
+ const key=level+'|'+variant+'|'+people+'|'+(col||''); let cv=artSpriteCache.get(key); if(cv) return cv;
+ const grid=HOUSE_ART[level][variant], k=ART_K[level], W=grid[0].length, H=grid.length;
+ cv=mk(Math.round((W+1)*k), Math.round((H+ART_TOP)*k)); const g=cv.getContext('2d');
+ drawHouseArt(g, level, variant, people, k*.5, ART_TOP*k, k);
+ if(col){ g.fillStyle=col; g.fillRect(Math.round(cv.width-k*1.1),Math.round((ART_TOP+H-1)*k),Math.max(2,Math.round(k*.5)),Math.round(k*.8)); } // cor da vila (como nas outras casas)
+ cv=hqUp(cv,true); artSpriteCache.set(key,cv); return cv;
+}
+function artDraw(a,H){
+ const povo=artPovo(H); if(!povo) return false;
+ const ow=villageById(state.cells[a].owner), lvl=ART_LEVEL[H.type], img=houseArtSprite(lvl,artVariant(a),povo,ow?SHIRTS[ow.color]:null);
+ const S=BUILDS[H.type].size||1, x=a%state.w, y=(a/state.w)|0, fit=Math.min(1,S*24*1.15/img.lw), kk=cellPx/24*fit, w=img.lw*kk, h=img.lh*kk;
+ const sx=(x+S/2-viewL)*cellPx, sy=(y+S-viewT)*cellPx;
+ ctx.drawImage(hi4(img,kk),sx-w/2,sy-h,w,h); H._scr=[sx,sy,w,h]; return true;
+}
+/* cabana, casa e casarão: a v27 já desenha em pé, com profundidade → troca só o desenho */
+{ const _dh=v27DrawHouse; v27DrawHouse=function(a,H){ try{ if(artDraw(a,H)) return; }catch(err){ v31Err(err); } return _dh.apply(this,arguments); }; }
+/* castelo com marca: entra na mesma lista de profundidade (o castelo antigo é pulado no desenho do mapa) */
+{ const _vi=v27Items; v27Items=function(items,cx0,cx1,cy0,cy1,now){ _vi.apply(this,arguments);
+  try{ for(const as in state.houses){ const H=state.houses[as]; if(H.type!=='castle'||!artPovo(H)) continue; const a=+as, x=a%state.w, y=(a/state.w)|0;
+    if(x<cx0-4||x>cx1+4||y<cy0-4||y>cy1+4) continue; items.push({y:y+2.97,k:9,draw:()=>artDraw(a,H)}); } }catch(err){ v31Err(err); } }; }
+/* no chão (mapa de terreno): casa/casarão com marca ficam só com o piso, sem fachada antiga por baixo */
+{ const _dh=drawHouse; drawHouse=function(a){ const H=state.houses[a];
+  if(artPovo(H)&&H.type!=='hut'&&H.type!=='castle'){ const g=tctx, S=BUILDS[H.type].size||1, x=(a%state.w)*T, y=((a/state.w)|0)*T;
+   g.fillStyle='#8a7350'; g.fillRect(x,y,S*T,S*T); g.fillStyle='#9a835e'; for(let i=0;i<S*T;i+=4) g.fillRect(x+(i*7)%(S*T),y+i,2,1); g.fillStyle='#6e5a3c'; g.fillRect(x,y+S*T-1,S*T,1); return; }
+  return _dh(a); }; }
+
+/* ---------- testes (console): MV40.marcar(a,'russo') e MV40.vitrine() ---------- */
+window.MV40 = {
+ HOUSE_ART, PEOPLES, drawHouseArt, houseArtSprite, artVariant,
+ marcar(a, povo){ const H=state.houses[a]; if(!H||!ART_LEVEL[H.type]) return false; if(povo) H.povo=povo; else delete H.povo; markAround(a%state.w,(a/state.w)|0,BUILDS[H.type].size||1); fullRedraw=true; return true; },
+ /* põe as 72 combinações (6 povos × 4 níveis × 3 variantes) numa área do mapa. SÓ PARA TESTE: apaga o que estiver lá. */
+ vitrine(x0=4, y0=4){
+  const povos=Object.keys(PEOPLES), tipos=['hut','house','manor','castle'], feitos=[];
+  povos.forEach((povo,row)=>{ let cx=x0; const y=y0+row*5;
+   for(const tipo of tipos) for(let v=0;v<3;v++){
+    let x=cx; while(((x*31+y*17)%3)!==v) x++;
+    const S=BUILDS[tipo].size||1; if(x+S>=state.w||y+S>=state.h) continue;
+    for(let yy=y;yy<y+S;yy++) for(let xx=x;xx<x+S;xx++){ const c=cell(xx,yy); if(c.build) clearBuild(xx,yy); Object.assign(c,{water:0,tree:null,ore:null,terrain:'fertile',reg:0}); }
+    setBuild(x,y,tipo,0); const a=idx(x,y); state.houses[a].povo=povo; feitos.push([povo,tipo,v,x,y]); cx=x+S+1; } });
+  fullRedraw=true; return feitos;
+ }
+};
+
 selectTool('terrain');
 renderSaves();
 resize();

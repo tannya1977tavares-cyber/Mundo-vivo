@@ -18,7 +18,7 @@ O jogo inteiro está num arquivo só:
 app/src/main/assets/index.html
 ```
 
-É o mesmo HTML do Mundo Vivo (hoje a v39). Você pode:
+É o mesmo HTML do Mundo Vivo (hoje a v40). Você pode:
 
 - abrir esse arquivo no navegador do computador para testar;
 - editar com qualquer editor de texto (VS Code, Notepad++...);

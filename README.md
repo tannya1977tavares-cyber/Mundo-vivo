@@ -15,7 +15,7 @@ Você molda o terreno e a vida acontece sozinha: bichos nascem, envelhecem e ca�
 - **Plataformas:** navegador (computador ou celular) e Android 7+ (APK)
 - **Tecnologia:** um único arquivo HTML com JavaScript puro e Canvas, sem servidor e sem internet. O app Android é um WebView em tela cheia.
 - **Idioma:** português
-- **Versão atual:** v39 (14 de novembro de 2026)
+- **Versão atual:** v40 (14 de novembro de 2026)
 - **Autor:** Bruno, com desenvolvimento assistido por IA (Claude)
 
 ## Como jogar
@@ -64,6 +64,7 @@ No **modo deus** você usa pincéis de terreno, natureza, chuva e animais. No **
 
 | Versão | Destaque | Relatório |
 |---|---|---|
+| v40 | 🏘️ Casas com a cara de 6 povos (inglês, cigano, judeu, russo, brasileiro, americano): 4 níveis × 3 variantes, só desenho (fase 40.1) | [ler](relatorios/v40-relatorio.md) |
 | v39 | 👼 Querubim em pixel art com ordens pessoais, trânsito de carroças e carros nas cidades (com atropelamento), ruas sem saída ligadas, mais casas e vias seguindo os quadrados | [ler](relatorios/v39-relatorio.md) |
 | v38 | 😇 O Anjo: o semideus invoca um anjo que obedece ordens (menu de poderes, chat em português e modo administrador) | [ler](relatorios/v38-relatorio.md) |
 | v37 | Uma casa por casal, cidades densas com sobrados, 8 fábricas e 13 itens novos | [ler](relatorios/v37-relatorio.md) |
@@ -109,8 +110,8 @@ Todas as versões jogáveis estão em [`versoes/`](versoes/). A lista completa d
 
 ```
 index.html        página do portfólio (GitHub Pages)
-jogar/            o jogo (v39), jogável direto no navegador
-versoes/          todas as versões em HTML (v18 a v39)
+jogar/            o jogo (v40), jogável direto no navegador
+versoes/          todas as versões em HTML (v18 a v40)
 apk/              APKs para Android (v35, v36, v37)
 design/           documentos de design em PDF
 relatorios/       relatório de cada versão
