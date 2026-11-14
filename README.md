@@ -64,7 +64,7 @@ No **modo deus** você usa pincéis de terreno, natureza, chuva e animais. No **
 
 | Versão | Destaque | Relatório |
 |---|---|---|
-| v40 | 🏘️ Casas com a cara de 6 povos (inglês, cigano, judeu, russo, brasileiro, americano): 4 níveis × 3 variantes, só desenho (fase 40.1) | [ler](relatorios/v40-relatorio.md) |
+| v40 | 🏘️ Povos nas cidades (ingleses, Romani, judeus, brasileiros; slot 5 reservado), casas com a cara de cada povo, 9 níveis sociais pelo dinheiro, rei intolerante ou que aceita bairros, save v10 | [ler](relatorios/v40-relatorio.md) |
 | v39 | 👼 Querubim em pixel art com ordens pessoais, trânsito de carroças e carros nas cidades (com atropelamento), ruas sem saída ligadas, mais casas e vias seguindo os quadrados | [ler](relatorios/v39-relatorio.md) |
 | v38 | 😇 O Anjo: o semideus invoca um anjo que obedece ordens (menu de poderes, chat em português e modo administrador) | [ler](relatorios/v38-relatorio.md) |
 | v37 | Uma casa por casal, cidades densas com sobrados, 8 fábricas e 13 itens novos | [ler](relatorios/v37-relatorio.md) |
