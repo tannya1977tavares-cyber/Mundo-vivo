@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Mundo Vivo v38</title>
+<title>Mundo Vivo v39</title>
 <style>
 /* Visual: painel escuro de "mesa de deus" em volta de um mapa em pixel art; verde-broto como acento. */
 :root{
@@ -23969,6 +23969,295 @@ function anjoDraw(now){
 { const _ov=v27Overlay; v27Overlay=function(now){ _ov(now); try{ anjoDraw(now); }catch(err){ v31Err(err); } }; }
 { const _ld=load; load=function(){ const r=_ld.apply(this,arguments); anjoPlano=null; anjoFala=''; anjoSel=null; anjoArgs={}; anjoFecha(); return r; }; }
 window.MVanjo={AP,anjoFaz,anjoOrdem,partes38,passo38,verbo38,achaCidades38,anjoAbre,anjoFecha,anjoRender,fazPlano38,h38,get adm(){return anjoAdm;},set adm(x){anjoAdm=!!x;},get plano(){return anjoPlano;},get fala(){return anjoFala;},a38,dbg:{get state(){return state;},v27,v27MakeAvatar,possess,v27Reveal,avEnt,members,rei38,aliados38,emGuerra38}};
+/* =====================================================================
+   VERSÃO 39 — QUERUBIM 👼, TRÂNSITO 🚦 E RUAS EM GRADE
+   · o anjo vira um querubim em pixel art que voa atrás do semideus
+     e obedece ordens pessoais: seguir, proteger, vigiar, buscar madeira
+     ou pedra, voltar e dispensar
+   · carroças (e carros, na era industrial) andam pelas ruas de terra e
+     de pedra das cidades, estacionam no quintal das casas e podem
+     atropelar quem estiver no caminho (quanto mais rápido, pior)
+   · ruas sem saída são ligadas à rede, as cidades erguem mais sobrados
+     e avenidas e trilhos seguem os quadrados (retas de 45°)
+   ===================================================================== */
+const Q39 = {VEL:6.5, VIGIA_R:9, PROT_R:8, TIRO_CD:1.1, DANO:7, CARGA:4, COLHE:2.2, BUSCA_R:28, VIAGENS:3};
+const TR39 = {MAX:48, POR:7, CARROCA:1.25, CARRO:2.5, VIDA:DAY*.7, PARA:[DAY*.04,DAY*.12], FREIA:.96, OLHA:.15, DIA_MAX:1};
+const on39 = k => typeof CTRL43==='undefined'||CTRL43.on(k);
+{ const G=CTRL43.LISTA.find(g=>g[0]==='Cidades'); const L=G?G[1]:CTRL43.LISTA[0][1];
+  L.push(['transito','🚦 Trânsito nas cidades','carroças e carros andando nas ruas e estacionando nas casas'],
+         ['atropelar','💥 Atropelamentos','desligado, os veículos sempre freiam a tempo'],
+         ['ruas39','🛣️ Ligar ruas sem saída','a cidade abre ruas para ligar os becos à rede'],
+         ['vias45','📐 Vias seguindo os quadrados','avenidas e trilhos em retas de 45°, sem curva suave']); }
+
+/* ---------------------------------------------------------------------
+   QUERUBIM
+   --------------------------------------------------------------------- */
+ANJO.NOME='Querubim';
+let q39=null;            // posição e estado do voo (não vai no save)
+const fl39=[];           // flechas de luz voando (só desenho)
+const qOrd39 = () => { const A=a38(); return A.q39||(A.q39={modo:'seguir',on:0,vx:0,vy:0,busca:'wood',viagens:0}); };
+const qNome39 = {seguir:'seguindo você',proteger:'protegendo você',vigiar:'vigiando um lugar',buscar:'buscando',dorme:'dispensado'};
+function qAtivo39(){ const av=avEnt(); if(!av||av.hp<=0||av.w7.hid||av.inside!=null) return null; if(!av.w7.semi&&!anjoAdm) return null; const O=qOrd39(); return O.on?av:null; }
+function qChama39(){ const O=qOrd39(), av=avEnt(); if(!O.on){ O.on=1; if(O.modo==='dorme') O.modo='seguir'; q39=null; if(av){ v27Fx({k:'col',x:av.x+1.2,y:av.y-.5,t:0,dur:1.4}); sfx('lvl',av.x,av.y); } } }
+/* inimigos: feras, bandidos e quem atacou o semideus há pouco */
+function inimigo39(x,y,R,av){
+ let best=null, bd=R;
+ for(const o of state.ents){ if(o.hp<=0||o.inside!=null||o===av||isAv(o)||o.id===state.playerId) continue;
+  const d=Math.hypot(o.x-x,o.y-y); if(d>=bd) continue;
+  const fera=o.sp==='wolf'||o.sp==='bear'||o.sp==='lion', mau=o.sp==='human'&&(o.bandit||(av&&av.lastFoe===o.id&&state.time-(av.lastFoeT||0)<20));
+  if(fera||mau){ best=o; bd=d; } }
+ return best; }
+/* recurso mais perto do semideus: árvore (madeira) ou rocha (pedra) */
+function recurso39(av,k){
+ const R=Q39.BUSCA_R, x0=Math.floor(av.x), y0=Math.floor(av.y); let best=null, bd=1e9;
+ for(let y=Math.max(0,y0-R);y<=Math.min(state.h-1,y0+R);y++) for(let x=Math.max(0,x0-R);x<=Math.min(state.w-1,x0+R);x++){
+  const c=cell(x,y); if(!c||c.build) continue; const ok=k==='wood'?!!c.tree:!!c.ore; if(!ok) continue;
+  const d=Math.hypot(x-x0,y-y0); if(d<bd){ bd=d; best=[x,y]; } }
+ return best; }
+function qOrdem39(modo,extra){
+ const O=qOrd39(), av=avEnt(); qChama39();
+ if(modo==='dorme'){ O.on=0; O.modo='dorme'; q39=null; return 'Vou descansar nas nuvens. É só me chamar de novo.'; }
+ if(modo==='voltar'){ O.modo='seguir'; if(q39){ q39.fase=null; q39.carga=0; } return 'Voltando para perto de você.'; }
+ if(modo==='vigiar'){ if(!av) return 'Preciso saber onde você está.'; O.modo='vigiar'; O.vx=av.x; O.vy=av.y-1.2; return 'Vou vigiar este lugar. Se aparecer perigo, eu aviso e atiro.'; }
+ if(modo==='buscar'){ const k=extra==='stone'?'stone':'wood'; if(av&&!recurso39(av,k)) return k==='wood'?'Não vejo nenhuma árvore perto daqui.':'Não vejo nenhuma rocha perto daqui.';
+  O.modo='buscar'; O.busca=k; O.viagens=0; if(q39){ q39.fase=null; q39.carga=0; } return k==='wood'?'Vou buscar madeira para você.':'Vou buscar pedra para você.'; }
+ O.modo=modo; return modo==='proteger'?'Arco pronto. Ninguém encosta em você.':'Estou logo atrás de você.';
+}
+function qTick39(dt){
+ const av=qAtivo39(); if(!av){ return; }
+ const O=qOrd39(), f=av.face||1;
+ if(!q39) q39={x:av.x-f*1.3,y:av.y-6,anim:0,cd:0,fase:null,carga:0,alvo:null,vira:f,tiro:0,avisa:0};
+ const Q=q39; let tx=av.x-f*1.3, ty=av.y-1.7;
+ if(O.modo==='vigiar'){ tx=O.vx; ty=O.vy; }
+ if(O.modo==='buscar'){
+  if(!Q.fase){ const r=recurso39(av,O.busca); if(!r){ O.modo='seguir'; diz39(O.busca==='wood'?'Acabaram as árvores por perto.':'Acabaram as rochas por perto.'); } else { Q.alvo=r; Q.fase='ida'; } }
+  if(Q.fase==='ida'||Q.fase==='colhe'){ tx=Q.alvo[0]+.5; ty=Q.alvo[1]-.6;
+   const c=cell(Q.alvo[0],Q.alvo[1]); if(!c||(O.busca==='wood'?!c.tree:!c.ore)){ Q.fase=null; }
+   else if(Math.hypot(Q.x-tx,Q.y-ty)<.35){ if(Q.fase==='ida'){ Q.fase='colhe'; Q.colhe=0; } Q.colhe+=dt; if(Math.random()<dt*2) addFloat(Q.alvo[0]+.5,Q.alvo[1]-.8,O.busca==='wood'?'🪓':'⛏️');
+    if(Q.colhe>=Q39.COLHE){ Q.carga=Q39.CARGA; Q.fase='volta'; } } }
+  if(Q.fase==='volta'){ tx=av.x-f*.8; ty=av.y-1.2;
+   if(Math.hypot(Q.x-tx,Q.y-ty)<.5){ const k=O.busca; av.carry=av.carry||{}; av.carry[k]=(av.carry[k]||0)+Q.carga; addFloat(av.x,av.y-1.4,`+${Q.carga}${k==='wood'?'🪵':'🪨'}`); sfx('coin',av.x,av.y);
+    Q.carga=0; Q.fase=null; O.viagens=(O.viagens||0)+1; if(O.viagens>=Q39.VIAGENS){ O.modo='seguir'; diz39(`Trouxe ${Q39.CARGA*Q39.VIAGENS} de ${k==='wood'?'madeira':'pedra'}. Mais alguma coisa?`); } } } }
+ // voo: chega rápido quando está longe e plana devagar quando está perto
+ const dx=tx-Q.x, dy=ty-Q.y, d=Math.hypot(dx,dy);
+ if(d>40){ Q.x=tx; Q.y=ty-3; }
+ else if(d>.02){ const v=Math.min(d,(Q39.VEL+d*1.2)*dt); Q.x+=dx/d*v; Q.y+=dy/d*v; if(Math.abs(dx)>.15) Q.vira=dx>0?1:-1; }
+ if(d<.6&&O.modo!=='buscar') Q.vira=O.modo==='vigiar'?Q.vira:f;
+ // arco: protege o semideus ou o ponto de vigia
+ Q.cd-=dt;
+ if(O.modo==='proteger'||O.modo==='vigiar'){
+  const cx=O.modo==='vigiar'?O.vx:av.x, cy=O.modo==='vigiar'?O.vy:av.y, R=O.modo==='vigiar'?Q39.VIGIA_R:Q39.PROT_R;
+  const e=inimigo39(cx,cy,R,av);
+  if(e&&O.modo==='vigiar'&&state.time>(Q.avisa||0)){ Q.avisa=state.time+DAY*.15; toast(`👼 Querubim: perigo no ponto de vigia (${e.name||SPECIES[e.sp].name})!`); }
+  if(e&&Q.cd<=0&&Math.hypot(e.x-Q.x,e.y-Q.y)<R+3){ Q.cd=Q39.TIRO_CD; Q.tiro=performance.now(); Q.vira=e.x>Q.x?1:-1;
+   fl39.push({x0:Q.x,y0:Q.y,x1:e.x,y1:e.y-.5,t0:performance.now()}); if(fl39.length>12) fl39.shift();
+   if(hurt(e,Q39.DANO,null)){ killEnt(e,'querubim'); addFloat(e.x,e.y-1,'✨'); if(e.sp==='human') pushLog(`👼 O querubim de ${av.name} derrubou ${e.name} com uma flecha de luz`,false,{x:e.x,y:e.y}); } } }
+}
+function diz39(t){ try{ diz38('anjo',t); }catch(err){} toast('👼 '+t); }
+/* pixel art do querubim: 16 x 13 pixels, asas em dois quadros */
+const QPX39 = [
+ '......YYYY......',
+ '.....Y....Y.....',
+ '......YYYY......',
+ '......GGGG......',
+ '.....GGGGGG.....',
+ '.....GSSSSG.....',
+ '.....SESSES.....',
+ '.....SCSSCS.....',
+ '......SSSS......',
+ '.....PPPPPP.....',
+ '....SPPPPPPS....',
+ '.....DDDDDD.....',
+ '.....SS..SS.....'];
+const QASA39 = [ // asa esquerda (a direita é o espelho): [linha, texto de 5 colunas]
+ [[2,'WW...'],[3,'WWW..'],[4,'WWWW.'],[5,'.WWWW'],[6,'..WWW'],[7,'...WW']],
+ [[6,'...WW'],[7,'.WWWW'],[8,'WWWWW'],[9,'WWWW.'],[10,'.WW..']] ];
+const QCOR39 = {Y:'#ffe066',G:'#f2c14e',S:'#ffd9b3',E:'#3a2a1a',C:'#ff9d9d',P:'#ff8fb1',D:'#ffffff',W:'#ffffff',w:'#d6e2f2',B:'#8b5a2b',L:'#9a6b3a',R:'#9a9a9a'};
+function qDraw39(now){
+ const av=qAtivo39(); if(!av||!q39) return;
+ const u=cellPx, Q=q39, bob=Math.sin(now/300)*.15, X=(Q.x-viewL)*u, Y=(Q.y+bob-viewT)*u;
+ if(X<-u*4||Y<-u*4||X>canvasW+u*4||Y>canvasH+u*4) return;
+ const s=Math.max(1,Math.round(u*.095)), W=16*s, H=13*s, x0=Math.round(X-W/2), y0=Math.round(Y-H/2), fl=Math.floor(now/140)%2, vira=Q.vira||1;
+ // sombra no chão e brilho
+ ctx.fillStyle='rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(X,Y+u*1.5,u*.45,u*.14,0,0,7); ctx.fill();
+ const gr=ctx.createRadialGradient(X,Y,0,X,Y,u*1.3); gr.addColorStop(0,'rgba(255,240,180,.45)'); gr.addColorStop(1,'rgba(255,240,180,0)'); ctx.fillStyle=gr; ctx.fillRect(X-u*1.3,Y-u*1.3,u*2.6,u*2.6);
+ const px=(c,r,col)=>{ const cc=vira>0?c:15-c; ctx.fillStyle=col; ctx.fillRect(x0+cc*s,y0+r*s,s,s); };
+ for(const [r,t] of QASA39[fl]) for(let i=0;i<5;i++) if(t[i]==='W'){ px(i,r,i===0||t[i-1]!=='W'?QCOR39.w:QCOR39.W); px(15-i,r,i===0||t[i-1]!=='W'?QCOR39.w:QCOR39.W); }
+ for(let r=0;r<QPX39.length;r++){ const t=QPX39[r]; for(let c=0;c<16;c++){ const k=t[c]; if(k!=='.') px(c,r,QCOR39[k]); } }
+ const O=qOrd39();
+ // arco na mão quando protege ou vigia (corda puxada logo depois do tiro)
+ if(O.modo==='proteger'||O.modo==='vigiar'){ const puxa=now-(Q.tiro||0)<180;
+  for(const [c,r] of [[12,6],[13,7],[13,8],[13,9],[12,10]]) px(c,r,QCOR39.B);
+  for(let r=7;r<=9;r++) px(puxa?11:12,r,'#f4f4f4'); }
+ // carga: tora ou pedra pendurada
+ if(Q.carga){ const k=O.busca; for(let c=5;c<=10;c++) px(c,13,k==='wood'?QCOR39.L:QCOR39.R); for(let c=6;c<=9;c++) px(c,14,k==='wood'?'#7a5028':'#7d7d7d'); }
+ // flechas de luz
+ for(let i=fl39.length-1;i>=0;i--){ const a=fl39[i], t=(now-a.t0)/220; if(t>1.6){ fl39.splice(i,1); continue; } const k=Math.min(1,t);
+  const ax=(a.x0+(a.x1-a.x0)*k-viewL)*u, ay=(a.y0+(a.y1-a.y0)*k-viewT)*u, bx=(a.x0+(a.x1-a.x0)*Math.max(0,k-.25)-viewL)*u, by=(a.y0+(a.y1-a.y0)*Math.max(0,k-.25)-viewT)*u;
+  ctx.strokeStyle=`rgba(255,230,120,${t>1?1.6-t:1})`; ctx.lineWidth=Math.max(1.5,u*.12); ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(ax,ay); ctx.stroke();
+  if(t>=1){ ctx.fillStyle=`rgba(255,250,200,${(1.6-t)/.6})`; ctx.beginPath(); ctx.arc(ax,ay,u*.35*(t-.6),0,7); ctx.fill(); } }
+ if(O.modo==='vigiar'&&u>=6){ const vx=(O.vx-viewL)*u, vy=(O.vy+1.2-viewT)*u; ctx.strokeStyle='rgba(255,230,120,.35)'; ctx.setLineDash([u*.4,u*.3]); ctx.lineWidth=1; ctx.beginPath(); ctx.arc(vx,vy,Q39.VIGIA_R*u,0,7); ctx.stroke(); ctx.setLineDash([]); }
+}
+anjoDraw=function(now){ qDraw39(now); };
+/* painel: aba nova 👼 Querubim e o 😇 vira 👼 */
+{ const b=$('a38Btn'); if(b){ b.innerHTML='👼<small>querubim</small>'; b.title='Chamar o querubim'; } }
+{ const _ab=anjoAbre; anjoAbre=function(){ const r=_ab.apply(this,arguments); try{ if(anjoEl&&!anjoEl.hidden) qChama39(); }catch(err){ v31Err(err); } return r; }; }
+{ const _r=anjoRender; anjoRender=function(){ _r(); if(!anjoEl) return; try{
+  anjoEl.innerHTML=anjoEl.innerHTML.split('😇').join('👼');
+  const tabs=anjoEl.querySelector('.tabs'); if(tabs){ const b=document.createElement('button'); b.dataset.a='tab'; b.dataset.v='quer'; b.textContent='👼 Querubim'; if(anjoTab==='quer') b.className='on'; tabs.insertBefore(b,tabs.firstChild); }
+  if(anjoTab==='quer'){ const O=qOrd39(), B=(a,t,v,on)=>`<button data-a="${a}" data-v="${v}" class="${on?'on':''}">${t}</button>`;
+   let H=`<div class="card"><b>Ordens para o querubim</b><p>Agora: <b>${O.on?qNome39[O.modo]||O.modo:'dispensado'}${O.on&&O.modo==='buscar'?(O.busca==='wood'?' madeira':' pedra'):''}</b>. Estas ordens não gastam Fé.</p>`;
+   H+=`<div class="btns">${B('q39','🕊️ Seguir<small>fica atrás de você</small>','seguir',O.on&&O.modo==='seguir')}${B('q39','🏹 Proteger<small>atira em feras e bandidos</small>','proteger',O.on&&O.modo==='proteger')}${B('q39','👁️ Vigiar aqui<small>guarda este lugar</small>','vigiar',O.on&&O.modo==='vigiar')}${B('q39','🪵 Buscar madeira<small>traz 12 🪵</small>','buscar:wood',O.on&&O.modo==='buscar'&&O.busca==='wood')}${B('q39','🪨 Buscar pedra<small>traz 12 🪨</small>','buscar:stone',O.on&&O.modo==='buscar'&&O.busca==='stone')}${B('q39','↩️ Voltar<small>larga tudo e volta</small>','voltar',false)}${B('q39',O.on?'💤 Dispensar<small>sobe para as nuvens</small>':'🔔 Chamar<small>desce ao seu lado</small>',O.on?'dorme':'chama',false)}</div>`;
+   H+=`<div class="small" style="margin-top:6px">Também dá para escrever em 💬 Ordens: “me segue”, “me protege”, “vigia aqui”, “busca madeira”, “busca pedra”, “volta”, “vai descansar”.</div></div>`;
+   anjoEl.insertAdjacentHTML('beforeend',H); }
+  if(anjoTab==='ajuda') anjoEl.insertAdjacentHTML('beforeend',`<div class="card"><b>👼 O querubim</b><p>Ele voa atrás de você enquanto você está no modo semideus. Na aba 👼 Querubim você manda ele seguir, proteger (atira flechas de luz em feras, bandidos e em quem te atacou), vigiar um lugar, buscar madeira ou pedra, voltar ou descansar.</p><b>🚦 Trânsito</b><p>Carroças (e carros, quando a cidade entra na indústria) andam pelas ruas, estacionam no quintal das casas e podem atropelar quem estiver no caminho. Dá para desligar em ⚙️.</p></div>`);
+  const ch=anjoEl.querySelector('#a38chat'); if(ch) ch.scrollTop=ch.scrollHeight;
+ }catch(err){ v31Err(err); } }; }
+{ const _c=anjoClick; anjoClick=function(b){ const a=b.dataset&&b.dataset.a, v=b.dataset&&b.dataset.v;
+  if(a==='q39'){ const [m,x]=String(v).split(':'); const msg=m==='chama'?(qChama39(),qOrd39().modo='seguir','Desci! Estou ao seu lado.'):qOrdem39(m,x); anjoFala=msg; diz38('anjo',msg); anjoRender(); return; }
+  return _c.apply(this,arguments); }; }
+/* as ordens pessoais também funcionam escritas */
+{ const _o=anjoOrdem; anjoOrdem=function(txt){ const t=n38(txt);
+  const M=[[/\b(me segue|me siga|segue me|siga me|vem comigo|venha comigo)\b/,'seguir'],[/\b(me protege|me proteja|protege me|proteja me|me defende|me defenda|guarda costas)\b/,'proteger'],[/\b(vigia|vigie|vigiar|guarda este lugar|toma conta daqui)\b/,'vigiar'],
+   [/\b(busca|busque|buscar|traz|traga|pega|pegue)\b.*\b(madeira|lenha|tora)/,'buscar:wood'],[/\b(busca|busque|buscar|traz|traga|pega|pegue)\b.*\b(pedra|rocha)/,'buscar:stone'],[/^(volta|volte|vem ca|venha ca|volta aqui)$/,'voltar'],[/\b(vai descansar|pode ir|dispensado|va embora|vai embora|some)\b/,'dorme']];
+  for(const [re,m] of M) if(re.test(t)){ diz38('voce',txt); const [a,x]=m.split(':'); const r=qOrdem39(a,x); diz38('anjo',r); anjoFala=r; return; }
+  return _o.apply(this,arguments); }; }
+
+/* ---------------------------------------------------------------------
+   TRÂNSITO: carroças e carros nas ruas das cidades (não vai no save)
+   --------------------------------------------------------------------- */
+const tr39=[]; let tr39T=0, tr39Col=0;
+const D4_39=[[1,0],[0,1],[-1,0],[0,-1]];
+const areaR39 = v => { try{ return muroR36(v)+4; }catch(err){ return (v.R||8)+8; } };
+function rua39(x,y){ if(!inside(x,y)) return false; const c=cell(x,y);
+ if(c.build){ const B=BUILDS[c.build]; return !!(B&&(B.bridge||(B.gate&&c.build!=='door'))); }
+ if(c.water) return false; return c.terrain==='trampled'||c.terrain==='paved'; }
+const casaB39 = c => !!(c&&c.build&&BUILDS[c.build]&&BUILDS[c.build].size);
+function vizRua39(x,y){ let n=0; for(const [dx,dy] of D4_39) if(rua39(x+dx,y+dy)) n++; return n; }
+function nasce39(v){
+ const R=areaR39(v);
+ for(let t=0;t<40;t++){ const a=Math.random()*6.283, r=Math.random()*R, x=Math.floor(v.cx+Math.cos(a)*r), y=Math.floor(v.cy+Math.sin(a)*r);
+  if(!rua39(x,y)||cell(x,y).build||vizRua39(x,y)<2) continue;
+  const op=D4_39.filter(([dx,dy])=>rua39(x+dx,y+dy)); const [dx,dy]=pick(op);
+  const carro=industrial36(v)&&Math.random()<.65;
+  tr39.push({vid:v.id,cx:x,cy:y,nx:x+dx,ny:y+dy,f:0,dx,dy,tipo:carro?'carro':'carroca',vmax:(carro?TR39.CARRO:TR39.CARROCA)*rnd(.8,1.15),vel:0,
+   vida:TR39.VIDA*rnd(.6,1.2),park:0,parkXY:null,parkOk:state.time+DAY*.05,mod:(Math.random()*3)|0,cor:(Math.random()*5)|0,carga:pick(['food','wood','stone','food']),olha:new Map(),freia:0,buz:0});
+  return true; }
+ return false; }
+function proximo39(t,v){
+ const R=areaR39(v)+6, op=D4_39.filter(([dx,dy])=>!(dx===-t.dx&&dy===-t.dy)&&rua39(t.cx+dx,t.cy+dy)&&Math.hypot(t.cx+dx-v.cx,t.cy+dy-v.cy)<R);
+ if(!op.length) return rua39(t.cx-t.dx,t.cy-t.dy)?[-t.dx,-t.dy]:null;
+ const reto=op.find(([dx,dy])=>dx===t.dx&&dy===t.dy); return reto&&Math.random()<.65?reto:pick(op); }
+/* quintal: chão livre colado numa casa, ao lado da rua */
+function quintal39(x,y){
+ for(const [dx,dy] of D4_39){ const qx=x+dx, qy=y+dy; if(!inside(qx,qy)) continue; const c=cell(qx,qy); if(c.build||c.water||c.ore||rua39(qx,qy)||c.terrain==='hillHigh'||c.terrain==='hillMid') continue;
+  if(tr39.some(o=>o.parkXY&&o.parkXY[0]===qx&&o.parkXY[1]===qy)) continue;
+  for(const [ex,ey] of D8B) if(casaB39(cellAt(qx+ex,qy+ey))) return [qx,qy]; }
+ return null; }
+const posT39 = t => { if(t.parkXY) return [t.parkXY[0]+.5,t.parkXY[1]+.5]; const x=t.cx+.5+(t.nx-t.cx)*t.f, y=t.cy+.5+(t.ny-t.cy)*t.f; return [x-t.dy*.22,y+t.dx*.22]; }; // mão direita
+const angT39 = t => Math.atan2(t.dy,t.dx);
+function trTick39(dt){
+ if(!on39('transito')){ tr39.length=0; return; }
+ tr39T+=dt; if(tr39T>1.5){ tr39T=0;
+  for(const v of state.villages){ if(v.stage==='fire') continue; const n=tr39.filter(t=>t.vid===v.id).length, alvo=Math.min(TR39.POR,Math.floor((members(v).length||0)/6));
+   if(n<alvo&&tr39.length<TR39.MAX&&Math.random()<.5) nasce39(v); } }
+ // quem está na rua (para frear e para atropelar)
+ tr39Col+=dt; let mapa=null;
+ if(tr39Col>=TR39.OLHA&&tr39.length){ tr39Col=0; mapa=new Map(); const W=state.w;
+  for(const o of state.ents){ if(o.hp<=0||o.inside!=null||isDragon(o)||(o.z||0)>.3||(o.alt||0)>.1) continue; try{ if(dentro36(o)) continue; }catch(err){}
+   const k=Math.floor(o.y)*W+Math.floor(o.x); let L=mapa.get(k); if(!L) mapa.set(k,L=[]); L.push(o); } }
+ for(let i=tr39.length-1;i>=0;i--){ const t=tr39[i], v=villageById(t.vid);
+  t.vida-=dt; if(!v||t.vida<=0&&!t.parkXY){ tr39.splice(i,1); continue; }
+  if(t.park>0){ t.park-=dt; t.vel=0; if(t.park<=0){ t.park=0; t.parkXY=null; t.parkOk=state.time+DAY*.12; } continue; }
+  // freia se tiver gente na frente (decide uma vez por pessoa)
+  let quer=t.vmax;
+  if(mapa){ const W=state.w, [x,y]=posT39(t); t.freia=0;
+   for(const k of [t.cy*W+t.cx,t.ny*W+t.nx,(t.ny+t.dy)*W+t.nx+t.dx]){ const L=mapa.get(k); if(!L) continue;
+    for(const o of L){ const ox=o.x-x, oy=o.y-y, d=Math.hypot(ox,oy), frente=ox*t.dx+oy*t.dy;
+     if(frente>-.1&&d<2.2){ let s=t.olha.get(o.id); if(s==null){ s=!on39('atropelar')||Math.random()<TR39.FREIA||(v.atropDia39||0)>=TR39.DIA_MAX||o.id===state.playerId&&Math.random()<.5; t.olha.set(o.id,s); }
+      if(!s&&d<.5&&t.vel>.45){ atropela39(t,o,v); continue; } if(s){ t.freia=1; if(state.time>t.buz&&o.sp==='human'){ t.buz=state.time+6; addFloat(x,y-.9,t.tipo==='carro'?'📯':'🔔'); } } } } } }
+  if(t.freia) quer=0;
+  t.vel+=clamp(quer-t.vel,-dt*3.5,dt*(t.tipo==='carro'?1.4:.8));
+  t.f+=t.vel*dt;
+  if(t.f>=1){ t.cx=t.nx; t.cy=t.ny; t.f=0; if(t.olha.size>40) t.olha.clear();
+   // estaciona no quintal de uma casa de vez em quando
+   if(state.time>t.parkOk&&Math.random()<.12){ const q=quintal39(t.cx,t.cy); if(q){ t.parkXY=q; t.park=rnd(TR39.PARA[0],TR39.PARA[1]); t.vel=0; continue; } }
+   const p=proximo39(t,v); if(!p){ tr39.splice(i,1); continue; } t.dx=p[0]; t.dy=p[1]; t.nx=t.cx+p[0]; t.ny=t.cy+p[1]; }
+ }
+}
+function atropela39(t,o,v){
+ const spd=t.vel, eu=o.id===state.playerId||isAv(o), [x,y]=posT39(t);
+ addFloat(o.x,o.y-1,'💥'); sfx('hit',o.x,o.y);
+ const k=t.tipo==='carro'?9:6, dmg=spd*k;
+ // empurra para fora da rua
+ const nx=o.x+t.dx*.7-t.dy*.5, ny=o.y+t.dy*.7+t.dx*.5; if(passable(o,nx,ny)){ o.x=nx; o.y=ny; }
+ o.path=null; o.tx=null;
+ if(eu){ o.hp=Math.max(1,o.hp-dmg*.6); o.hurt=.3; flashHurt(); toast(`💥 Uma ${t.tipo==='carro'?'carro':'carroça'} te atropelou!`.replace('Uma carro','Um carro')); }
+ else if(o.sp==='human'){
+  const morre=Math.random()<clamp((spd-1)/4,.03,.45);
+  v.atrop39=(v.atrop39||0)+1; v.atropDia39=(v.atropDia39||0)+1;
+  if(morre){ killEnt(o,'atropelado'); pushLog(`🚑 ${o.name} morreu atropelad${o.sex==='F'?'a':'o'} por ${t.tipo==='carro'?'um carro':'uma carroça'} em ${v.name}`,false,{x:o.x,y:o.y}); }
+  else { if(hurt(o,dmg,null)) killEnt(o,'atropelado'); else if(Math.random()<.4) pushLog(`🚑 ${o.name} foi atropelad${o.sex==='F'?'a':'o'} em ${v.name}, mas sobreviveu`,false,{x:o.x,y:o.y}); } }
+ else if(hurt(o,dmg*1.5,null)) killEnt(o,'atropelado');
+ t.vel*=.35; t.olha.set(o.id,true);
+}
+/* desenho: carroça puxada por boi ou carro pequeno, do tamanho da rua */
+function trDraw39(t,now){
+ const [x,y]=posT39(t), X=(x-viewL)*cellPx, Y=(y-viewT)*cellPx, a=t.parkXY?(t.dx?0:Math.PI/2):angT39(t), sc=t.tipo==='carro'?.9:.95;
+ ctx.save(); ctx.translate(X,Y); ctx.scale(sc,sc);
+ if(t.tipo==='carro') carro36(ctx,0,0,a,cellPx,t.mod,t.cor,t.vel);
+ else carroca36Draw(ctx,0,0,a,cellPx,t.carga,true,false,t.vel>.05);
+ ctx.restore(); }
+{ const _vi=v27Items; v27Items=function(items,cx0,cx1,cy0,cy1,now){ _vi(items,cx0,cx1,cy0,cy1,now);
+  try{ if(on39('transito')) for(const t of tr39){ const [x,y]=posT39(t); if(x<cx0-2||x>cx1+2||y<cy0-2||y>cy1+3) continue; items.push({y:y+.25,k:9,draw:()=>trDraw39(t,now)}); } }catch(err){ v31Err(err); } }; }
+{ const _vl=v27Lights; v27Lights=function(dk,now){ _vl(dk,now); try{ if(dk<.05||!on39('transito')) return; const u=cellPx;
+  for(const t of tr39){ if(t.tipo!=='carro'||t.park>0) continue; const [x,y]=posT39(t), sx=(x+t.dx*.45-viewL)*u, sy=(y+t.dy*.45-viewT)*u; if(sx<-u*2||sy<-u*2||sx>canvasW+u*2||sy>canvasH+u*2) continue;
+   const g=ctx.createRadialGradient(sx,sy,0,sx,sy,u*.9); g.addColorStop(0,`rgba(255,240,190,${.45*dk})`); g.addColorStop(1,'rgba(255,240,190,0)'); ctx.fillStyle=g; ctx.fillRect(sx-u,sy-u,u*2,u*2); } }catch(err){} }; }
+
+/* ---------------------------------------------------------------------
+   RUAS: becos sem saída ligados à rede (uma vez por dia em cada cidade)
+   --------------------------------------------------------------------- */
+function becos39(v){
+ const R=areaR39(v)-2, W=state.w, x0=Math.max(1,Math.floor(v.cx-R)), x1=Math.min(state.w-2,Math.ceil(v.cx+R)), y0=Math.max(1,Math.floor(v.cy-R)), y1=Math.min(state.h-2,Math.ceil(v.cy+R));
+ const dentro=(x,y)=>x>=x0&&x<=x1&&y>=y0&&y<=y1&&Math.hypot(x-v.cx,y-v.cy)<=R;
+ const pontas=[]; for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++) if(dentro(x,y)&&rua39(x,y)&&!cell(x,y).build&&vizRua39(x,y)===1) pontas.push([x,y]);
+ let feitas=0;
+ for(const [px,py] of pontas.sort(()=>Math.random()-.5)){ if(feitas>=3) break;
+  // ruas que já se alcançam pela rede em até 7 passos não contam
+  const perto=new Set([py*W+px]), q=[[px,py,0]]; for(let h=0;h<q.length;h++){ const [x,y,d]=q[h]; if(d>=7) continue; for(const [dx,dy] of D4_39){ const nx=x+dx, ny=y+dy, k=ny*W+nx; if(!perto.has(k)&&rua39(nx,ny)){ perto.add(k); q.push([nx,ny,d+1]); } } }
+  // abre caminho por chão livre até outra rua (no máximo 7 quadrados)
+  const prev=new Map([[py*W+px,-1]]), Q=[[px,py,0]]; let achou=-1;
+  for(let h=0;h<Q.length&&achou<0;h++){ const [x,y,d]=Q[h]; if(d>=8) continue;
+   for(const [dx,dy] of D4_39){ const nx=x+dx, ny=y+dy, k=ny*W+nx; if(prev.has(k)||!dentro(nx,ny)) continue;
+    if(rua39(nx,ny)){ if(!perto.has(k)&&d>=1){ prev.set(k,y*W+x); achou=k; break; } continue; }
+    const c=cell(nx,ny); if(c.build||c.water||c.ore||c.owner&&c.owner!==v.id||c.terrain==='hillHigh'||c.terrain==='hillMid'||(c.reg&&c.reg===T36.RES)) continue;
+    prev.set(k,y*W+x); Q.push([nx,ny,d+1]); } }
+  if(achou<0) continue;
+  for(let k=prev.get(achou);k>=0&&k!==py*W+px;k=prev.get(k)){ const c=state.cells[k]; if(c.terrain!=='paved'){ c.terrain='trampled'; c.grass=0; c.tree=null; markDirty(k%W,(k/W)|0); } }
+  feitas++; }
+ if(feitas&&Math.random()<.3) pushLog(`🛣️ ${v.name} ligou ${feitas} rua${feitas>1?'s':''} sem saída à rede`,false,{x:v.cx,y:v.cy});
+ return feitas; }
+{ const _vt=villageTick; villageTick=function(step){ _vt(step);
+  try{ const C=cal(), V=v27(); if(V.dia39!==C.di){ V.dia39=C.di; for(const v of state.villages) v.atropDia39=0; if(on39('ruas39')) for(const v of state.villages.slice()) if(v.stage!=='fire') try{ becos39(v); }catch(err){ v31Err(err); } } }catch(err){ v31Err(err); } }; }
+
+/* ---------------------------------------------------------------------
+   MAIS CASAS: teto padrão "Grandes" e sobrado mais rápido
+   VIAS EM PIXELS: sem média móvel, a linha passa pelo meio de cada quadrado
+   --------------------------------------------------------------------- */
+lim37=function(){ let k=null; try{ k=localStorage.getItem('mv37lim'); }catch(e){} return k&&C37.LIM[k]?k:'grande'; };
+C37.OBRA=.35;
+try{ limites37(); }catch(err){}
+{ const _s=suave36; suave36=function(cells,jan){ if(!on39('vias45')) return _s(cells,jan); return cells.map(k=>[k%state.w+.5,((k/state.w)|0)+.5]); }; }
+{ const _set=CTRL43.set; CTRL43.set=function(k,b){ const r=_set.apply(this,arguments); if(k==='vias45') try{ const T=t36(); T.ver++; for(const o of T.trens.concat(T.autos)){ delete o.P; delete o.L; } }catch(err){} if(k==='transito'&&!b) tr39.length=0; return r; }; }
+
+/* ligações: anda a cada passo, zera ao carregar, ficha da vila */
+{ const _uw=updateWorld; updateWorld=function(dt){ _uw(dt);
+  try{ let r=Math.min(dt,4); while(r>0){ const s=Math.min(.25,r); r-=s; qTick39(s); trTick39(s); } }catch(err){ v31Err(err); } }; }
+{ const _ld=load; load=function(){ tr39.length=0; q39=null; fl39.length=0; const r=_ld.apply(this,arguments); try{ limites37(); }catch(err){} return r; }; }
+{ const _gw=generateWorld; generateWorld=function(){ tr39.length=0; q39=null; return _gw.apply(this,arguments); }; }
+{ const _vi=villageInfo; villageInfo=function(){ _vi(); try{ const v=villageById(state.infoRef); if(!v) return; const n=tr39.filter(t=>t.vid===v.id), c=n.filter(t=>t.tipo==='carro').length;
+  if(n.length||v.atrop39) $('infoLines').insertAdjacentHTML('beforeend',`<div><b>🚦 Trânsito:</b> ${n.length-c} carroça${n.length-c===1?'':'s'}${c?` e ${c} carro${c>1?'s':''}`:''} nas ruas${v.atrop39?` · 🚑 ${v.atrop39} atropelamento${v.atrop39>1?'s':''}`:''}</div>`); }catch(err){} }; }
+window.MVq39={anjoOrdem:t=>anjoOrdem(t),get q(){return q39;},qOrd39,qOrdem39,qTick39,tr39,trTick39,nasce39,becos39,rua39,atropela39,recurso39,inimigo39,get cellPx(){return cellPx;}};
 window.MVdbg={farmGrow,farmSz,farmSendOrder,farmExpTick,farmReorgCheck,miniPenPlace,buildMiniPen,mpenOf,farmHerd,farmPastors,farmPenOf,farmInPen,openFarm,farmCommand,bandCommand,guildCommand,dragonCommand,v17Tick,miniPenDaily,farmHireOne,farmOffer,farmAdults,cityGateSpot,landPrice,farmFence,farmChest,possess,clearRingFences,campSpot,villageAbandonTick,homeOf,annex,farmRect,farmPlan,farmBosses,farmNextBuild,farmRoles,hireGuards,guildTick,banditTick,farmWorldTick,academyTick,academySpot,studyThink,dreamOf,foundGuild,guildSpot,farmDoUp,cartThink,troughOf,penBuilt,penCap,farmMigrate,get farmEpoch(){return farmEpoch;},bumpFarm:()=>farmEpoch++,openVillage,openHouse,kingCommand,homeSpend,farmAbsorb,farmGrab,farmBuy,farmAnimals,farmStock,comfortOf,roomSize,animalPlayerAct,jobWant,hasPowers,castSpin,castBreath,powerHostile,highwayTick,hwRoute,get jutsus(){return jutsus;},farmRect,farmFence,farmShakedown,mercTick,hireMercFor,mercPrice,priceOf,addXP,load,save,isWildDragon,wildInit,dragonRevenge,dragonHuntTick,markAggressor,decideWar,borderDispute,gateLeft,gateMax,hitGate,chiefCape,raidOf,tameWildDragon,get WANTED(){return WANTED;},paint,doAction,computeTarget,killEnt,hurt,rebuildGrid,exitPlay,DRAGON,fireAt,hatchEgg,dragonEggEvents,groundOK,dStage,dAdult,get fireballs(){return fireballs;},get blasts(){return blasts;},onTap,stats:dbgStats,escapeTrap,setTask,clearBuild,villageById,npcState,patrolPoints,gateInside,hermitSpot,launchRaid,expandVillage,entSprite,ART,SPECIES,tapWorld:(x,y)=>onTap({x:(x-viewL)*cellPx,y:(y-viewT)*cellPx}),toScreen:(x,y)=>({x:(x-viewL)*cellPx,y:(y-viewT)*cellPx}),updateContext,feedPet,spawn,deathLog,petsOf,tameAnimal,villageTick,setBuild,enterHouse,exitHouse,nearHouseDoor,player,possess,findPath,passable,get inLay(){return inLay;}};
 selectTool('terrain');
 renderSaves();

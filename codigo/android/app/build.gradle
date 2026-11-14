@@ -10,8 +10,8 @@ android {
         applicationId 'com.bruno.mundovivo'
         minSdk 24
         targetSdk 34
-        versionCode 38          // aumente a cada APK novo (36, 37...) para o celular aceitar a atualização
-        versionName '38'
+        versionCode 39          // aumente a cada APK novo (36, 37...) para o celular aceitar a atualização
+        versionName '39'
     }
 
     signingConfigs {
