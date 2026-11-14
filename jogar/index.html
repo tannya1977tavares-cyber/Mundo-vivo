@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Mundo Vivo v37</title>
+<title>Mundo Vivo v39</title>
 <style>
 /* Visual: painel escuro de "mesa de deus" em volta de um mapa em pixel art; verde-broto como acento. */
 :root{
@@ -23469,6 +23469,795 @@ ctrl43Ov.addEventListener('change',ev=>{ const i=ev.target.closest('[data-c37lim
 try{ limites37(); }catch(err){}
 
 
+/* =====================================================================
+   VERSÃO 38 — O ANJO 😇
+   Um ajudante que o semideus invoca pelo botão 😇 da barra.
+   - ✨ Poderes: escolha o poder, escolha o alvo nas listas e mande fazer.
+   - 💬 Ordens: escreva em português ("faz chover em Vale Verde e depois
+     Boa Vista ataca Três Rios"). O anjo lê a frase e transforma nos mesmos
+     poderes do menu. Tudo roda no próprio jogo, sem internet.
+   - 🔑 Admin: com a senha, tudo fica grátis, sem recarga, e aparecem
+     poderes extras (Fé, ouro, teletransporte, criar bichos, matar...).
+   ===================================================================== */
+const ANJO = { NOME:'Serafim', CD:15, LOG_MAX:40, SENHA_H:0, VISTO_MS:25000 };
+const n38 = s => String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]+/g,' ').replace(/\s+/g,' ').trim();
+const esc38 = s => String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function h38(s){ let h=5381; for(const ch of n38(s)) h=(Math.imul(h,33)^ch.charCodeAt(0))>>>0; return h; }
+ANJO.SENHA_H = 1654961251; // a senha não fica escrita aqui: só o "resumo" dela
+let anjoAdm=false, anjoEl=null, anjoTab='poderes', anjoSel=null, anjoPlano=null, anjoArgs={}, anjoFala='', anjoVisto=0, anjoAberto=false;
+const a38 = () => { const V=v27(); const A=V.anjo || (V.anjo={log:[],cd:{},vezes:0,dica:0}); A.cd ||= {}; A.log ||= []; return A; };
+const pop38 = v => members(v).length;
+const rei38 = v => { const k=v&&byId.get(v.king); return k&&k.hp>0&&k.job==='rei'&&k.vid===v.id?k:null; };
+const gente38 = v => members(v).filter(o=>o.sp==='human'&&!isAv(o)&&o.id!==state.playerId);
+const jobN38 = e => (JOBS[e.job]||{}).name||e.job||'sem ofício';
+const rid38 = (A,B) => { // tira as tropas de A que estão atacando B (e vice-versa)
+ state.raids=state.raids.filter(r=>!((r.from===A.id&&r.to===B.id)||(r.from===B.id&&r.to===A.id)));
+ for(const e of state.ents) if((e.vid===A.id&&e.raid===B.id)||(e.vid===B.id&&e.raid===A.id)){ e.raid=0; e.task=null; e.path=null; } };
+const tiraUm38 = (arr,x) => (arr||[]).filter(i=>i!==x);
+function aliar38(A,B,on){
+ if(on){ for(const [x,y] of [[A,B],[B,A]]){ x.pacts ||= []; x.allies ||= []; if(!x.pacts.includes(y.id)) x.pacts.push(y.id); if(!x.allies.includes(y.id)) x.allies.push(y.id); } }
+ else { A.pacts=tiraUm38(A.pacts,B.id); A.allies=tiraUm38(A.allies,B.id); B.pacts=tiraUm38(B.pacts,A.id); B.allies=tiraUm38(B.allies,A.id); }
+}
+function aliados38(v){ return [...new Set([...(v.allies||[]),...(v.pacts||[])])].map(villageById).filter(Boolean); }
+function emGuerra38(v){ return state.raids.filter(r=>r.from===v.id||r.to===v.id).map(r=>villageById(r.from===v.id?r.to:r.from)).filter(Boolean); }
+function sairDaCasa38(a){ const x=a%state.w, y=(a/state.w)|0; for(const o of state.ents) if(o.inside===a){ o.inside=null; o.x=x+.5; o.y=y+1.6; } }
+function brilho38(x,y,seg){ const i=idx(Math.floor(x),Math.floor(y)); if(fires.has(i)) return; fires.add(i); setTimeout(()=>{ const c=state.cells[i]; if(!c||c.build!=='fire') fires.delete(i); },(seg||25)*1000); }
+function terreno38(x0,y0,r,fn){ let n=0; for(let y=Math.floor(y0)-r;y<=Math.floor(y0)+r;y++) for(let x=Math.floor(x0)-r;x<=Math.floor(x0)+r;x++){ if(!inside(x,y)) continue; const d=Math.hypot(x-x0,y-y0); if(d>r+.3) continue; fn(cell(x,y),x,y,d); markDirty(x,y); n++; } fullRedraw=true; return n; }
+function poder27(k,x,y){ // usa um poder antigo do semideus (ele mesmo cobra a Fé)
+ const V=v27(), av=avEnt(); if(!av) return false;
+ if(!anjoAdm) return v27UsePower(k,x,y);
+ const fe=V.fe, cd=V.cd, fi=V.fieis, semi=av.w7.semi, di=calDateIdx(); V.fe=1e9; V.cd={}; V.fieis=Object.assign({},fi); for(let i=0;i<FIEIS_MIN;i++) V.fieis['a38_'+i]=di; av.w7.semi=true;
+ try{ return v27UsePower(k,x,y); } finally { V.fe=fe; V.cd=cd; V.fieis=fi; av.w7.semi=semi; }
+}
+const ok27 = (r,txt) => r?txt:{erro:'Não deu certo agora (veja o aviso na tela).'};
+const centro38 = v => [v.cx+.5, v.cy+.5];
+const pl38 = (n,um,muitos) => `${n} ${n===1?um:muitos}`;
+
+/* ---------- os poderes do anjo ----------
+   alvo: o que precisa escolher · opc: alvo opcional · fe: custo em Fé · velho: usa um poder do semideus
+   mau: aumenta a sombra · perigo: pede confirmação nas ordens · adm: só no modo administrador */
+const AG38 = [['terra','🗺️ Terra e clima'],['obra','🏗️ Construção e riqueza'],['rei','👑 Reis e política'],['guerra','⚔️ Guerra e alianças'],['ira','🔥 Ira divina'],['bencao','💛 Bênçãos e povo'],['ver','👁️ Visão do anjo'],['adm','🔑 Administrador']];
+const ALVO38 = {cidade:'a cidade', cidade2:'a outra cidade', pessoa:'a pessoa', lugar:'o lugar', bicho:'o bicho', qtd:'a quantidade'};
+const AP = {
+ /* 🗺️ terra e clima */
+ chuva:{g:'terra',e:'🌧️',n:'Chuva',d:'Chove sobre a cidade: as plantações crescem e os incêndios apagam.',alvo:['cidade'],velho:'chuva',bom:1,run:a=>ok27(poder27('chuva',...centro38(a.cidade)),`Choveu sobre ${a.cidade.name}.`)},
+ seca:{g:'terra',e:'☀️',n:'Seca',d:'Nada cresce na cidade por uma semana.',alvo:['cidade'],velho:'seca',mau:1,run:a=>ok27(poder27('seca',...centro38(a.cidade)),`A seca caiu sobre ${a.cidade.name}.`)},
+ diluvio:{g:'terra',e:'🌊',n:'Dilúvio',d:'Alaga a cidade: perde um quarto da comida e as plantações.',alvo:['cidade'],velho:'diluvio',mau:1,run:a=>ok27(poder27('diluvio',...centro38(a.cidade)),`${a.cidade.name} está debaixo d'água.`)},
+ terremoto:{g:'terra',e:'🌋',n:'Terremoto',d:'Racha as casas e derruba pedaços do muro.',alvo:['cidade'],velho:'terremoto',mau:1,run:a=>ok27(poder27('terremoto',...centro38(a.cidade)),`A terra tremeu em ${a.cidade.name}.`)},
+ montanha:{g:'terra',e:'⛰️',n:'Erguer montanha',d:'Levanta uma montanha no lugar (derruba o que estiver em cima).',alvo:['lugar'],fe:20,run:a=>{ const L=a.lugar; terreno38(L.x,L.y,3,(c,x,y,d)=>{ c.water=0; c.terrain=d<1.5?'hillHigh':d<2.6?'hillMid':'hillLow'; c.grass=d<2.6?0:2; if(d<2.6){ c.tree=null; if(c.build) clearBuild(x,y); } }); rebuildGrid(); v27Fx({k:'mist',x:L.x,y:L.y,t:0,dur:2.5,big:1}); return `Ergui uma montanha ${L.nome}.`; }},
+ lago:{g:'terra',e:'💧',n:'Abrir lago',d:'Abre um lago no lugar. No meio de uma cidade, afunda o que estiver lá.',alvo:['lugar'],fe:20,run:a=>{ const L=a.lugar; terreno38(L.x,L.y,3,(c,x,y,d)=>{ if(c.build) clearBuild(x,y); c.water=d<1.5?3:d<2.6?2:1; c.terrain='fertile'; c.grass=0; c.tree=null; c.ore=null; }); rebuildGrid(); return `Abri um lago ${L.nome}.`; }},
+ floresta:{g:'terra',e:'🌳',n:'Floresta',d:'Faz nascer uma floresta em volta do lugar.',alvo:['lugar'],fe:10,bom:1,run:a=>{ const L=a.lugar; let n=0; terreno38(L.x,L.y,5,c=>{ if(c.water||c.build||c.reg||c.ore||c.terrain==='hillHigh'||Math.random()<.45) return; if(c.terrain==='sand'||c.terrain==='dry') c.terrain='fertile'; plantTree(c,Math.random()<.3?'fruit':treeFor(c.biome)); n++; }); return n?`Nasceram ${n} árvores ${L.nome}.`:{erro:'Não há chão livre para árvores aí.'}; }},
+ deserto:{g:'terra',e:'🏜️',n:'Virar deserto',d:'Transforma a terra em volta em areia de deserto.',alvo:['lugar'],fe:15,mau:1,run:a=>{ const L=a.lugar; terreno38(L.x,L.y,6,c=>{ if(c.water) return; c.biome='Deserto'; c.terrain='sand'; c.grass=0; if(!c.build) c.tree=null; }); return `A terra virou deserto ${L.nome}.`; }},
+ fertil:{g:'terra',e:'🌱',n:'Terra fértil',d:'Deixa a terra em volta boa para plantar e com capim.',alvo:['lugar'],fe:8,bom:1,run:a=>{ const L=a.lugar; terreno38(L.x,L.y,6,c=>{ if(c.water||c.terrain==='hillHigh'||c.terrain==='hillMid') return; c.terrain='fertile'; c.grass=3; if(c.biome==='Deserto') c.biome=null; }); return `A terra ficou fértil ${L.nome}.`; }},
+ eclipse:{g:'terra',e:'🌒',n:'Eclipse',d:'Escurece o mundo e todos os cultos começam na hora.',alvo:[],velho:'eclipse',run:()=>{ const av=avEnt(); return ok27(poder27('eclipse',av.x,av.y),'O sol se apagou por um tempo.'); }},
+ /* 🏗️ construção e riqueza */
+ muralha:{g:'obra',e:'🧱',n:'Muralha',d:'Cerca a cidade com um muro e um portão.',alvo:['cidade'],fe:10,bom:1,run:a=>{ const v=a.cidade; v.gates ||= []; if(!(v.fence&&v.fence.length)) ensureFence(v); let n=0;
+  for(const [x,y,g] of v.fence||[]){ if(!inside(x,y)) continue; const c=cell(x,y); if(c.build||c.water||c.terrain==='hillHigh'||c.terrain==='hillMid') continue; setBuild(x,y,g?'gate':'fence',v.id); n++; }
+  for(const [x,y] of v.gates){ if(inside(x,y)&&!cell(x,y).build&&!cell(x,y).water) setBuild(x,y,'gate',v.id); }
+  if(!n) return {erro:`${v.name} já tem a muralha completa.`}; rebuildGrid(); fullRedraw=true; v27Fx({k:'gold',x:v.cx,y:v.cy,t:0,dur:2}); return `${v.name} ganhou uma muralha (${n} pedaços).`; }},
+ celeiro:{g:'obra',e:'📦',n:'Celeiro cheio',d:'+60 madeira, +40 pedra e +40 comida no armazém da cidade.',alvo:['cidade'],fe:10,bom:1,run:a=>{ const v=a.cidade; v.wood=(v.wood||0)+60; v.stone=(v.stone||0)+40; v.food=(v.food||0)+40; celebrate(v.cx,v.cy,'#ffd23f'); return `O armazém de ${v.name} está cheio.`; }},
+ tesouro:{g:'obra',e:'🪙',n:'Tesouro',d:'+100 moedas no tesouro da cidade.',alvo:['cidade'],fe:12,run:a=>{ const v=a.cidade; coinsOf(v); v.coins+=100; addFloat(v.cx,v.cy-1,'+100🪙'); return `Caíram 100 moedas no tesouro de ${v.name}.`; }},
+ reforma:{g:'obra',e:'🏠',n:'Reforma divina',d:'Todas as casas da cidade sobem um nível.',alvo:['cidade'],fe:20,bom:1,run:a=>{ const v=a.cidade; let n=0; for(const h of v.houses||[]){ const H=state.houses[h]; if(H&&(H.up||0)<5){ H.up=(H.up||0)+1; n++; } } fullRedraw=true; try{ sob37Cache.clear(); }catch(err){} return n?`${pl38(n,'casa','casas')} de ${v.name} ${n===1?'ficou melhor':'ficaram melhores'}.`:{erro:`As casas de ${v.name} já estão no máximo.`}; }},
+ colheita:{g:'obra',e:'🌾',n:'Colheita farta',d:'Todas as plantações ficam prontas e o armazém ganha comida.',alvo:['cidade'],velho:'colheita',bom:1,run:a=>ok27(poder27('colheita',...centro38(a.cidade)),`${a.cidade.name} colheu em dobro.`)},
+ fundar:{g:'obra',e:'🏰',n:'Fundar cidade',d:'Leva duas pessoas para perto de você e elas fundam uma cidade nova.',alvo:[],fe:30,bom:1,run:()=>{ const av=avEnt(); const C=state.ents.filter(o=>isAdultH(o)&&o.hp>0&&!isAv(o)&&o.id!==state.playerId&&o.job!=='rei'&&o.inside==null&&!o.raid).sort((p,q)=>(p.vid?1:0)-(q.vid?1:0)||Math.hypot(p.x-av.x,p.y-av.y)-Math.hypot(q.x-av.x,q.y-av.y)).slice(0,2);
+  if(C.length<2) return {erro:'Não há gente livre para fundar uma cidade.'}; const [a,b]=C, old=[[a.x,a.y],[b.x,b.y]]; a.x=av.x+1.2; a.y=av.y+.5; b.x=av.x-1.2; b.y=av.y+.5;
+  const n=state.villages.length; if(!foundVillage(a,b)||state.villages.length===n){ a.x=old[0][0]; a.y=old[0][1]; b.x=old[1][0]; b.y=old[1][1]; rebuildGrid(); if(!foundVillage(a,b)||state.villages.length===n) return {erro:'Não achei um lugar bom para cidade. Tente num campo aberto, longe das outras cidades.'}; }
+  rebuildGrid(); const v=state.villages[state.villages.length-1]; v27Fx({k:'col',x:v.cx,y:v.cy,t:0,dur:2.5}); return `${a.name} e ${b.name} fundaram ${v.name}.`; }},
+ /* 👑 reis e política */
+ coroar:{g:'rei',e:'👑',n:'Coroar',d:'A pessoa vira rei (ou rainha) da cidade dela. O rei antigo vira guerreiro.',alvo:['pessoa'],fe:25,run:a=>{ const p=a.pessoa, v=villageById(p.vid); if(!v) return {erro:`${p.name} não mora em nenhuma cidade.`}; if(v.king===p.id&&p.job==='rei') return {erro:`${p.name} já é ${gnd(p,'o rei','a rainha')} de ${v.name}.`};
+  const k=rei38(v); if(k) k.job='guerreiro'; p.job='rei'; v.king=p.id; (v.dynasty ||= []).push(p.id); celebrate(p.x,p.y,'#ffd23f'); addFloat(p.x,p.y-1.3,'👑'); pushLog(`👑 O anjo coroou ${p.name}: agora é ${gnd(p,'o rei','a rainha')} de ${v.name}!`,true); return `${p.name} agora é ${gnd(p,'o rei','a rainha')} de ${v.name}.`; }},
+ destronar:{g:'rei',e:'🪓',n:'Derrubar o rei',d:'Tira o rei do trono. Quem tem mais nível na cidade assume.',alvo:['cidade'],fe:20,mau:1,run:a=>{ const v=a.cidade, k=rei38(v); if(!k) return {erro:`${v.name} está sem rei agora.`};
+  const h=gente38(v).filter(o=>isAdultH(o)&&o!==k).sort((p,q)=>(q.lvl||1)-(p.lvl||1))[0]; if(!h) return {erro:`Não há ninguém em ${v.name} para assumir o trono.`};
+  k.job='guerreiro'; h.job='rei'; v.king=h.id; (v.dynasty ||= []).push(h.id); addFloat(k.x,k.y-1.3,'🪓'); celebrate(h.x,h.y,'#ff5a4a'); pushLog(`🪓 ${k.name} perdeu o trono de ${v.name}. ${h.name} assumiu!`,true); return `${k.name} caiu. ${h.name} é quem manda em ${v.name} agora.`; }},
+ ganancia:{g:'rei',e:'💰',n:'Sussurro da ganância',d:'O rei fica ganancioso: cobra mais e faz mais guerra.',alvo:['cidade'],fe:8,mau:1,run:a=>{ const v=a.cidade; if(v.trait==='ganancia') return {erro:`O rei de ${v.name} já é ganancioso.`}; v.trait='ganancia'; return `Sussurrei ao rei de ${v.name}: agora ele só pensa em ouro e conquista.`; }},
+ mansidao:{g:'rei',e:'🕊️',n:'Sussurro da paz',d:'O rei fica manso: paga compensação em vez de brigar.',alvo:['cidade'],fe:8,bom:1,run:a=>{ const v=a.cidade; if(v.trait==='mansidao') return {erro:`O rei de ${v.name} já é manso.`}; v.trait='mansidao'; return `Sussurrei ao rei de ${v.name}: agora ele prefere a paz.`; }},
+ festa:{g:'rei',e:'🎉',n:'Festa no reino',d:'Todos da cidade comem e descansam.',alvo:['cidade'],fe:8,bom:1,run:a=>{ const v=a.cidade; for(const o of members(v)){ o.hunger=100; o.energy=100; } celebrate(v.cx,v.cy,'#ffd23f'); celebrate(v.cx,v.cy,'#ff8af0'); pushLog(`🎉 Festa em ${v.name}, presente do céu!`); return `Teve festa em ${v.name}.`; }},
+ recrutar:{g:'rei',e:'🛡️',n:'Recrutar exército',d:'Até 5 moradores viram guerreiros e pegam armas do arsenal.',alvo:['cidade'],fe:12,run:a=>{ const v=a.cidade, c=gente38(v).filter(o=>isAdultH(o)&&!['rei','guerreiro','guarda'].includes(o.job)&&!o.dragonId).slice(0,5); if(!c.length) return {erro:`Ninguém em ${v.name} pode virar guerreiro.`};
+  for(const o of c){ o.job='guerreiro'; o.jobT=state.time; o.task=null; } distributeGear(v); return `${pl38(c.length,'morador','moradores')} de ${v.name} ${c.length===1?'pegou':'pegaram'} em armas: ${c.map(o=>o.name).join(', ')}.`; }},
+ /* ⚔️ guerra e alianças */
+ guerra:{g:'guerra',e:'⚔️',n:'Declarar guerra',d:'A primeira cidade manda a tropa atacar a segunda.',alvo:['cidade','cidade2'],rot:{cidade:'Quem ataca',cidade2:'Quem é atacada'},fe:20,mau:1,perigo:1,run:a=>{ const A=a.cidade, B=a.cidade2; if(A===B) return {erro:'Uma cidade não pode atacar ela mesma.'};
+  if(B.lord===A.id) return {erro:`${B.name} já é vassala de ${A.name}.`}; if(A.lord) freeVassal(A,'o anjo quebrou as correntes');
+  aliar38(A,B,false); A.warDecT=state.time;
+  if(!launchRaid(A,B)){ const c=gente38(A).filter(o=>isAdultH(o)&&o.job!=='rei'&&!o.raid&&!o.dragonId); for(const o of c.slice(0,4)) if(o.job!=='guerreiro'){ o.job='guerreiro'; o.jobT=state.time; o.task=null; o.hp=Math.max(o.hp,maxHp(o)); } distributeGear(A);
+   if(!launchRaid(A,B)) return {erro:`${A.name} é pequena demais para atacar: precisa de pelo menos 2 adultos com saúde além do rei.`}; }
+  pushLog(`📜 Pela vontade do céu, ${A.name} declarou GUERRA a ${B.name}!`,true,{x:B.cx,y:B.cy}); return `${A.name} marchou contra ${B.name}.`; }},
+ alianca:{g:'guerra',e:'🤝',n:'Aliança',d:'As duas cidades viram aliadas e param de brigar.',alvo:['cidade','cidade2'],fe:15,bom:1,run:a=>{ const A=a.cidade, B=a.cidade2; if(A===B) return {erro:'Escolha duas cidades diferentes.'}; aliar38(A,B,true); rid38(A,B); celebrate(A.cx,A.cy,'#c8f08a'); celebrate(B.cx,B.cy,'#c8f08a'); pushLog(`🤝 ${A.name} e ${B.name} fizeram uma aliança abençoada pelo céu`,true); return `${A.name} e ${B.name} agora são aliadas.`; }},
+ romper:{g:'guerra',e:'💔',n:'Romper aliança',d:'A cidade trai o aliado. Sem a segunda cidade, rompe com todos.',alvo:['cidade'],opc:['cidade2'],rot:{cidade2:'Com quem (opcional)'},fe:10,mau:1,run:a=>{ const A=a.cidade, L=a.cidade2&&a.cidade2!==A?[a.cidade2]:aliados38(A); if(!L.length) return {erro:`${A.name} não tem aliados para trair.`};
+  for(const B of L) aliar38(A,B,false); pushLog(`💔 ${A.name} rompeu a aliança com ${L.map(v=>v.name).join(', ')}`,true); return `${A.name} traiu ${L.map(v=>v.name).join(' e ')}.`; }},
+ paz:{g:'guerra',e:'🏳️',n:'Paz',d:'Acaba a guerra entre as duas cidades. Sem a segunda, acaba todas as guerras da cidade.',alvo:['cidade'],opc:['cidade2'],rot:{cidade2:'Com quem (opcional)'},fe:10,bom:1,run:a=>{ const A=a.cidade, L=a.cidade2&&a.cidade2!==A?[a.cidade2]:emGuerra38(A); if(!L.length) return {erro:`${A.name} não está em guerra.`};
+  for(const B of L){ rid38(A,B); A.warDecT=B.warDecT=state.time; A.lastRaid=B.lastRaid=state.time; } A.underAttack=0; pushLog(`🏳️ Paz entre ${A.name} e ${L.map(v=>v.name).join(', ')}`,true); return `Fiz a paz entre ${A.name} e ${L.map(v=>v.name).join(' e ')}.`; }},
+ recuar:{g:'guerra',e:'↩️',n:'Mandar a tropa voltar',d:'A tropa da cidade larga a guerra e volta para casa.',alvo:['cidade'],fe:6,run:a=>{ const v=a.cidade, R=state.raids.filter(r=>r.from===v.id); if(!R.length) return {erro:`${v.name} não tem tropa fora.`}; for(const r of R) for(const id of r.ids){ const e=byId.get(id); if(e){ e.raid=0; e.task=null; e.path=null; } } state.raids=state.raids.filter(r=>r.from!==v.id); return `A tropa de ${v.name} está voltando.`; }},
+ bencaoexercito:{g:'guerra',e:'🦁',n:'Abençoar o exército',d:'Guerreiros, guardas e caçadores da cidade saram e ganham coragem.',alvo:['cidade'],fe:12,bom:1,run:a=>{ const v=a.cidade, L=members(v).filter(o=>['guerreiro','guarda','cacador','campones'].includes(o.job)); if(!L.length) return {erro:`${v.name} não tem soldados.`}; for(const o of L){ o.hp=maxHp(o); v27Bless(o,'coragem',DAY); } return `${pl38(L.length,'soldado','soldados')} de ${v.name} ${L.length===1?'está curado e corajoso':'estão curados e corajosos'}.`; }},
+ submeter:{g:'guerra',e:'⛓️',n:'Tornar vassala',d:'A segunda cidade passa a obedecer e pagar tributo à primeira.',alvo:['cidade','cidade2'],rot:{cidade:'Quem manda',cidade2:'Quem obedece'},fe:30,mau:1,perigo:1,run:a=>{ const A=a.cidade, B=a.cidade2; if(A===B) return {erro:'Escolha duas cidades diferentes.'}; if(A.lord===B.id) freeVassal(A,'o anjo virou o jogo'); aliar38(A,B,false); rid38(A,B); dominate(A,B); return `${B.name} agora é vassala de ${A.name}.`; }},
+ /* 🔥 ira divina */
+ raio:{g:'ira',e:'⚡',n:'Raio',d:'Um raio cai na pessoa.',alvo:['pessoa'],velho:'raio',mau:1,run:a=>{ const p=a.pessoa; return ok27(poder27('raio',p.x,p.y-.3),`O raio caiu em ${p.name}.`); }},
+ queimar:{g:'ira',e:'🔥',n:'Queimar pessoa',d:'A pessoa pega fogo e morre.',alvo:['pessoa'],fe:10,mau:1,perigo:1,run:a=>{ const p=a.pessoa; v27Fx({k:'mist',x:p.x,y:p.y,t:0,dur:2}); addFloat(p.x,p.y-1.3,'🔥'); brilho38(p.x,p.y,12); killEnt(p,'fire'); pushLog(`🔥 ${p.name} queimou por ordem do céu`,true); return `${p.name} virou cinza.`; }},
+ lobo:{g:'ira',e:'🐺',n:'Maldição do lobo',d:'A pessoa vira lobisomem nas noites de lua cheia.',alvo:['pessoa'],velho:'lobo',mau:1,run:a=>{ const p=a.pessoa; return ok27(poder27('lobo',p.x,p.y-.3),`${p.name} carrega a maldição do lobo.`); }},
+ ratos:{g:'ira',e:'🐀',n:'Praga de ratos',d:'Os ratos comem metade da comida da cidade.',alvo:['cidade'],velho:'ratos',mau:1,run:a=>ok27(poder27('ratos',...centro38(a.cidade)),`Os ratos atacaram o armazém de ${a.cidade.name}.`)},
+ peste:{g:'ira',e:'🦠',n:'Peste',d:'Uma doença derruba a cidade: velhos e fracos morrem, o resto fica doente.',alvo:['cidade'],fe:25,mau:1,perigo:1,run:a=>{ const v=a.cidade; let m=0, d=0; for(const o of gente38(v)){ if(o.age>SPECIES.human.maxAge*.7||Math.random()<.2){ killEnt(o,'sick'); m++; } else { o.hp=Math.max(1,o.hp*.4); d++; } }
+  v27Fx({k:'mist',x:v.cx,y:v.cy,t:0,dur:4,big:1}); pushLog(`🦠 A peste caiu sobre ${v.name}: ${m} mortos`,true,{x:v.cx,y:v.cy}); return `A peste levou ${pl38(m,'pessoa','pessoas')} de ${v.name} e deixou ${pl38(d,'doente','doentes')}.`; }},
+ meteoros:{g:'ira',e:'☄️',n:'Chuva de fogo',d:'Meteoros caem no meio da cidade.',alvo:['cidade'],velho:'meteoros',mau:1,perigo:1,run:a=>{ const [x,y]=centro38(a.cidade); for(let i=0;i<5;i++) brilho38(x+rnd(-3,3),y+rnd(-3,3),20); return ok27(poder27('meteoros',x,y),`Choveu fogo sobre ${a.cidade.name}.`); }},
+ incendiar:{g:'ira',e:'🏚️',n:'Incendiar cidade',d:'Fogo na cidade: um terço das casas queima e parte do povo morre.',alvo:['cidade'],fe:35,mau:1,perigo:1,run:a=>{ const v=a.cidade; let c=0, m=0;
+  const HH=(v.houses||[]).filter(h=>h!==v.house).sort(()=>Math.random()-.5); for(const h of HH.slice(0,Math.max(HH.length?1:0,Math.round(HH.length*.35)))){ const x=h%state.w, y=(h/state.w)|0; sairDaCasa38(h); brilho38(x,y,30); clearBuild(x,y); c++; }
+  for(const o of gente38(v)) if(Math.random()<.15){ addFloat(o.x,o.y-1.3,'🔥'); killEnt(o,'fire'); m++; }
+  for(let i=0;i<7;i++) v27Fx({k:'meteor',x:v.cx+rnd(-v.R,v.R),y:v.cy+rnd(-v.R,v.R),t:-i*.2,dur:1.2,hit:1}); V27shake38(); fullRedraw=true;
+  pushLog(`🔥 ${v.name} pegou fogo! ${pl38(c,'casa queimou','casas queimaram')} e ${pl38(m,'pessoa morreu','pessoas morreram')}`,true,{x:v.cx,y:v.cy}); return `${v.name} ardeu: ${pl38(c,'casa queimada','casas queimadas')}, ${pl38(m,'morto','mortos')}.`; }},
+ destruir:{g:'ira',e:'💀',n:'Destruir cidade',d:'Apaga a cidade do mapa. Metade do povo morre e o resto vira andarilho.',alvo:['cidade'],fe:80,mau:1,perigo:1,run:a=>{ const v=a.cidade, nome=v.name; let m=0, s=0;
+  for(const i of v.region||[]){ const c=state.cells[i]; if(c&&c.build){ const x=i%state.w, y=(i/state.w)|0; if(c.anchor>=0) sairDaCasa38(c.anchor); clearBuild(x,y); if(Math.random()<.08) brilho38(x,y,40); } }
+  for(const [x,y] of v.fence||[]) if(inside(x,y)&&cell(x,y).build) clearBuild(x,y);
+  for(const o of members(v)){ if(isAv(o)||o.id===state.playerId){ o.vid=0; continue; } if(Math.random()<.5){ killEnt(o,'fire'); m++; } else { o.vid=0; if(o.job==='rei') o.job='campones'; o.task=null; o.path=null; s++; } }
+  for(const w of state.villages){ w.allies=tiraUm38(w.allies,v.id); w.pacts=tiraUm38(w.pacts,v.id); if(w.lord===v.id) freeVassal(w,'quem mandava nela foi destruída'); }
+  for(let i=0;i<10;i++) v27Fx({k:'meteor',x:v.cx+rnd(-v.R,v.R),y:v.cy+rnd(-v.R,v.R),t:-i*.2,dur:1.2,hit:1}); V27shake38();
+  abandon(v); rebuildGrid(); fullRedraw=true; pushLog(`💀 ${nome} foi apagada do mapa pela ira do céu. ${m} morreram, ${s} fugiram.`,true); return `${nome} não existe mais. ${pl38(m,'pessoa morreu','pessoas morreram')} e ${pl38(s,'fugiu','fugiram')}.`; }},
+ /* 💛 bênçãos e povo */
+ aurora:{g:'bencao',e:'🌅',n:'Aurora sagrada',d:'Toda a cidade acorda curada, alimentada e com ânimo.',alvo:['cidade'],velho:'aurora',bom:1,run:a=>ok27(poder27('aurora',...centro38(a.cidade)),`${a.cidade.name} acordou curada.`)},
+ fartura:{g:'bencao',e:'🌊',n:'Chuva da fartura',d:'Chuva que enche os campos e o armazém.',alvo:['cidade'],velho:'fartura',bom:1,run:a=>ok27(poder27('fartura',...centro38(a.cidade)),`A fartura chegou em ${a.cidade.name}.`)},
+ cura:{g:'bencao',e:'💚',n:'Curar pessoa',d:'Cura a pessoa e tira as maldições leves.',alvo:['pessoa'],velho:'cura',bom:1,run:a=>{ const p=a.pessoa; return ok27(poder27('cura',p.x,p.y-.3),`${p.name} está curad${gnd(p,'o','a')}.`); }},
+ pregar:{g:'bencao',e:'📿',n:'Pregação',d:'Os adultos da cidade viram seus fiéis (os poderes grandes pedem fiéis).',alvo:['cidade'],fe:15,bom:1,run:a=>{ const v=a.cidade, V=v27(), di=calDateIdx(); V.fieis ||= {}; let n=0; for(const o of gente38(v)) if(isAdultH(o)){ V.fieis[o.id]=di; n++; } celebrate(v.cx,v.cy,'#fff6c0'); return n?`${pl38(n,'pessoa','pessoas')} de ${v.name} ${n===1?'passou':'passaram'} a adorar você.`:{erro:`Não há adultos em ${v.name}.`}; }},
+ curarme:{g:'bencao',e:'❤️',n:'Curar o semideus',d:'Sua vida enche de novo.',alvo:[],fe:5,bom:1,run:()=>{ const av=avEnt(); av.hp=maxHp(av); addFloat(av.x,av.y-1.3,'❤️'); return 'Suas feridas fecharam.'; }},
+ /* 👁️ visão (grátis) */
+ relatorio:{g:'ver',e:'📜',n:'Relatório do mundo',d:'Lista as cidades, reis, guerras e alianças.',alvo:[],fe:0,run:()=>relatorio38()},
+ espiar:{g:'ver',e:'🔎',n:'Espiar cidade',d:'Mostra tudo sobre uma cidade: povo, soldados, armazém, rei.',alvo:['cidade'],fe:0,run:a=>espiar38(a.cidade)},
+ mostrar:{g:'ver',e:'📍',n:'Mostrar no mapa',d:'Leva a câmera até a cidade.',alvo:['cidade'],fe:0,run:a=>{ const v=a.cidade; state.cam.x=v.cx; state.cam.y=v.cy; addFloat(v.cx,v.cy-2,'📍'); return `${v.name} está marcada com 📍.`; }},
+ /* 🔑 administrador */
+ fe:{g:'adm',adm:1,e:'🙏',n:'Encher a Fé',d:'Soma Fé (padrão 500).',alvo:[],opc:['qtd'],run:a=>{ const n=Math.min(1e6,a.qtd||500), V=v27(); V.fe+=n; return `+${n} de Fé. Agora você tem ${Math.floor(V.fe)}.`; }},
+ ouro:{g:'adm',adm:1,e:'💰',n:'Ouro para mim',d:'Moedas para o semideus (padrão 1000).',alvo:[],opc:['qtd'],run:a=>{ const n=Math.min(1e6,a.qtd||1000), av=avEnt(); av.coins=(av.coins||0)+n; addFloat(av.x,av.y-1.3,`+${n}🪙`); return `+${n} moedas no seu bolso.`; }},
+ teleporte:{g:'adm',adm:1,e:'🌀',n:'Teletransporte',d:'Leva o semideus até a cidade.',alvo:['cidade'],run:a=>{ const v=a.cidade, av=avEnt(), g=(v.gates&&v.gates[0])||[v.cx,v.cy+v.R+1]; av.x=g[0]+.5; av.y=g[1]+1.5; av.path=null; rebuildGrid(); v27Fx({k:'col',x:av.x,y:av.y,t:0,dur:1.5}); state.cam.x=av.x; state.cam.y=av.y; return `Você está no portão de ${v.name}.`; }},
+ criar:{g:'adm',adm:1,e:'🐉',n:'Criar bichos',d:'Faz nascer bichos no lugar (até 20).',alvo:['bicho','lugar'],opc:['qtd'],run:a=>{ const L=a.lugar, sp=a.bicho, n=clamp(a.qtd||(isDragon({sp})?1:4),1,20); let k=0;
+  for(let i=0;i<n;i++){ const x=L.x+rnd(-2.5,2.5), y=L.y+rnd(-2.5,2.5); if(!passable(null,x,y)) continue; const e=spawn(sp,x,y,SPECIES[sp].adult+rnd(5,60)); if(!e) break; if(isDragon(e)) wildInit(e); k++; }
+  return k?`${k===1?'Nasceu':'Nasceram'} ${k}× ${SPECIES[sp].e} ${SPECIES[sp].name.toLowerCase()} ${L.nome}.`:{erro:'Não há chão livre aí.'}; }},
+ matar:{g:'adm',adm:1,e:'☠️',n:'Matar',d:'A pessoa morre na hora, sem efeito nenhum.',alvo:['pessoa'],perigo:1,run:a=>{ const p=a.pessoa; killEnt(p,'war'); return `${p.name} morreu.`; }},
+ dia:{g:'adm',adm:1,e:'⏩',n:'Pular meio dia',d:'O tempo do mundo anda meio dia de uma vez.',alvo:[],run:()=>{ state.time+=DAY/2; return 'Passou meio dia.'; }}
+};
+function V27shake38(){ try{ v27().shake=state.time+3; }catch(err){} }
+const BICHO38 = {lobo:'wolf',lobos:'wolf',urso:'bear',ursos:'bear',leao:'lion',leoes:'lion',dragao:'dragon',dragoes:'dragon',tanque:'dragonT',cavalo:'horse',cavalos:'horse',vaca:'cow',vacas:'cow',ovelha:'sheep',ovelhas:'sheep',galinha:'chicken',galinhas:'chicken',coelho:'rabbit',coelhos:'rabbit',cachorro:'dog',cachorros:'dog'};
+function custo38(k){ const P=AP[k]; if(!P||anjoAdm) return 0; return P.velho?PODER[P.velho].fe:(P.fe||0); }
+
+/* ---------- informação ---------- */
+function relatorio38(){
+ const C=state.villages.slice().sort((a,b)=>pop38(b)-pop38(a)); if(!C.length) return 'Ainda não existe nenhuma cidade no mundo.';
+ const L=[`O mundo tem ${C.length} cidade(s):`];
+ for(const v of C){ const k=rei38(v), al=aliados38(v), gu=emGuerra38(v), lo=villageById(v.lord);
+  L.push(`• ${v.name}: 👥 ${pop38(v)} · ${k?`👑 ${k.name}`:'sem rei'} · ${v.trait==='ganancia'?'💰 ganancioso':'🕊️ manso'}${lo?` · ⛓️ vassala de ${lo.name}`:''}${al.length?` · 🤝 ${al.map(x=>x.name).join(', ')}`:''}${gu.length?` · ⚔️ guerra com ${gu.map(x=>x.name).join(', ')}`:''}`); }
+ const av=avEnt(); if(av) L.push(`Você tem 🙏 ${Math.floor(v27().fe)} de Fé e ${v27Fieis()} fiéis.`);
+ return L.join('\n'); }
+function espiar38(v){ const k=rei38(v), M=members(v), sold=M.filter(o=>['guerreiro','guarda','cacador'].includes(o.job)).length, al=aliados38(v), gu=emGuerra38(v); coinsOf(v);
+ return [`🔎 ${v.name}`, `👥 ${M.length} moradores, ${sold} soldados · ${v.trait==='ganancia'?'💰 rei ganancioso':'🕊️ rei manso'}`,
+  k?`👑 ${k.name}, nível ${k.lvl||1}`:'👑 sem rei',
+  `📦 comida ${Math.floor(v.food||0)} · madeira ${Math.floor(v.wood||0)} · pedra ${Math.floor(v.stone||0)} · 🪙 ${Math.floor(v.coins||0)}`,
+  `🤝 aliados: ${al.length?al.map(x=>x.name).join(', '):'nenhum'} · ⚔️ guerras: ${gu.length?gu.map(x=>x.name).join(', '):'nenhuma'}`,
+  v.fence&&v.fence.length?'🧱 tem muralha':'🧱 sem muralha'].join('\n'); }
+
+/* ---------- executar um poder ---------- */
+function anjoFaz(k,a){
+ const P=AP[k]; if(!P) return {ok:false,msg:'Não conheço esse poder.'};
+ if(P.adm&&!anjoAdm) return {ok:false,msg:`${P.e} ${P.n} só funciona no modo administrador 🔑.`};
+ const V=v27(), A=a38(), av=avEnt(), t=state.time;
+ if(!av) return {ok:false,msg:'Preciso do seu corpo de semideus no mundo.'};
+ if(!anjoAdm&&!av.w7.semi) return {ok:false,msg:'Revele-se ✨ (modo semideus) para eu poder agir.'};
+ for(const al of P.alvo) if(a[al]==null) return {ok:false,msg:`Falta escolher ${ALVO38[al]}.`};
+ if(a.pessoa&&(a.pessoa.hp<=0||isAv(a.pessoa))) return {ok:false,msg:'Essa pessoa não está mais viva.'};
+ if(a.cidade&&!state.villages.includes(a.cidade)||a.cidade2&&!state.villages.includes(a.cidade2)) return {ok:false,msg:'Essa cidade não existe mais.'};
+ if(!anjoAdm){
+  if(P.velho){ const Q=PODER[P.velho]; if(V.fe<Q.fe) return {ok:false,msg:`Falta Fé: ${P.n} custa ${Q.fe} 🙏 e você tem ${Math.floor(V.fe)}.`};
+   if(Q.fe>=25&&v27Fieis()<FIEIS_MIN) return {ok:false,msg:`${P.n} pede ${FIEIS_MIN} fiéis e você tem ${v27Fieis()}. Use 📿 Pregação numa cidade.`};
+   if((V.cd&&V.cd[P.velho]||0)>t) return {ok:false,msg:`${P.n} ainda está recarregando.`}; }
+  else { const fe=custo38(k); if(V.fe<fe) return {ok:false,msg:`Falta Fé: ${P.n} custa ${fe} 🙏 e você tem ${Math.floor(V.fe)}.`};
+   if((A.cd[k]||0)>t) return {ok:false,msg:`${P.n} ainda está recarregando (${Math.ceil(A.cd[k]-t)} s).`}; }
+ }
+ let r; try{ r=P.run(a); }catch(err){ v31Err(err); return {ok:false,msg:'Algo deu errado: '+(err&&err.message||err)}; }
+ if(r==null||r===false) return {ok:false,msg:'Não consegui fazer isso agora.'};
+ if(typeof r==='object'&&r.erro) return {ok:false,msg:r.erro};
+ if(!P.velho&&P.fe){ if(!anjoAdm){ V.fe-=P.fe; A.cd[k]=t+ANJO.CD; } if(P.mau) V.sombra=Math.min(100,V.sombra+2); else if(P.bom) V.sombra=Math.max(0,V.sombra-1); }
+ A.vezes=(A.vezes||0)+1; if(P.g!=='ver'){ v27Pose(av,P.mau?'amaldicoar':'abencoar',1); sfx('lvl',av.x,av.y); }
+ anjoVisto=performance.now(); try{ updateHud(); }catch(err){}
+ return {ok:true,msg:r};
+}
+
+/* ---------- o leitor de ordens ----------
+   A frase vira passos. Cada passo é um poder do menu com os alvos já escolhidos. */
+const VERBOS38 = [
+ [/\b(teleport\w*|me leva\w*|leva me|me manda pra|me manda para)\b/,'teleporte'],
+ [/\b(enche\w* (a |minha )?fe|mais fe|da me fe|me da fe)\b|\bfe \d+|\d+ (de )?fe\b/,'fe'],
+ [/\b(ouro|moedas|dinheiro) (pra|para) mim\b|\bme da \d* ?(ouro|moedas)\b|\bouro \d+\b/,'ouro'],
+ [/\bpula\w* (o |meio )?(tempo|dia)\b|\bpassa\w* o tempo\b/,'dia'],
+ [/\b(chuva de fogo|meteor\w*|bola\w* de fogo)\b/,'meteoros'],
+ [/\b(destr[oau]\w*|arras\w*|devast\w*|aniquil\w*|apag\w* do mapa|varr\w* do mapa|acab\w* com)\b/,'destruir'],
+ [/\b(incend\w*|queim\w*|toca\w* fogo|taca\w* fogo|bota\w* fogo|poe fogo|ponha fogo|fogo)\b/,'queimar'],
+ [/\b(raio\w*|fulmin\w*|relampago)\b/,'raio'],
+ [/\b(mata|matar|mate|matem|executa\w*|elimin\w*)\b/,'matar'],
+ [/\b(lobisom\w*|maldicao do lobo)\b/,'lobo'],
+ [/\b(romp\w*|trai|trair|traia|traicao|quebr\w* a alianca|desfaz\w* a alianca|fim da alianca)\b/,'romper'],
+ [/\b(paz|tregua|cessar fogo|para\w* a guerra|parem a guerra|acab\w* a guerra|fim da guerra)\b/,'paz'],
+ [/\b(alianca|aliancas|alia\w*|pacto|unir|unam|amig\w*)\b/,'alianca'],
+ [/\b(vassal\w*|submet\w*|domin\w*|obedec\w*)\b/,'submeter'],
+ [/\b(recu\w*|retir\w*|volt\w* (pra|para) casa|desist\w* da guerra)\b/,'recuar'],
+ [/\babenco\w* (o |os |a |as )?(exercito|tropa\w*|soldad\w*|guerreir\w*)\b/,'bencaoexercito'],
+ [/\b(guerra|atac\w*|ataque|invad\w*|conquist\w*|marcha\w*|declar\w*)\b/,'guerra'],
+ [/\b(recrut\w*|exercito|alist\w*|arma\w* o povo)\b/,'recrutar'],
+ [/\b(coro[ae]\w*|nomei\w*|vira rei|vire rei|seja rei|vira rainha|vire rainha|seja rainha|faz\w* rei|faz\w* rainha)\b/,'coroar'],
+ [/\b(destron\w*|derrub\w*|dep[oõ]e\w*|depor|tira\w* (o |a )?(rei|rainha|trono))\b/,'destronar'],
+ [/\b(ganan\w*|cobic\w*|ambic\w*)\b/,'ganancia'],
+ [/\b(mans[oa]|pacific\w*|bondos\w*|calm[oa])\b/,'mansidao'],
+ [/\b(festa|banquete|festejo)\b/,'festa'],
+ [/\b(peste|doenca|epidemia|praga)\b(?! de rato)/,'peste'],
+ [/\b(rato|ratos|praga de rato\w*)\b/,'ratos'],
+ [/\b(diluvio|inund\w*|alag\w*|enchente)\b/,'diluvio'],
+ [/\b(terremot\w*|tremor|trem\w* a terra|sacud\w*)\b/,'terremoto'],
+ [/\b(seca|estiagem)\b/,'seca'],
+ [/\b(fartura|abundancia)\b/,'fartura'],
+ [/\b(chuva|chover|chova|chove)\b/,'chuva'],
+ [/\b(eclipse|escurec\w* o (sol|mundo|ceu))\b/,'eclipse'],
+ [/\b(montanh\w*|morro|serra)\b/,'montanha'],
+ [/\b(lago|lagoa|represa)\b/,'lago'],
+ [/\b(florest\w*|bosque|arvor\w*|plant\w* arvor\w*)\b/,'floresta'],
+ [/\b(desert\w*|areia)\b/,'deserto'],
+ [/\b(fertil|adub\w*)\b/,'fertil'],
+ [/\b(muralha|muro|fortific\w*|cerca\w*)\b/,'muralha'],
+ [/\b(madeira|pedra|comida|celeiro|armazem|recursos|mantimentos)\b/,'celeiro'],
+ [/\b(tesouro|moedas|dinheiro|ouro|enriquec\w*|ric[oa])\b/,'tesouro'],
+ [/\b(reforma\w*|melhor\w* as casas|casas melhores)\b/,'reforma'],
+ [/\b(colheita|safra)\b/,'colheita'],
+ [/\b(fund\w* (uma )?(cidade|vila)|cri\w* (uma )?(cidade|vila)|nova cidade|nova vila)\b/,'fundar'],
+ [/\b(aurora|cur\w* (a cidade|todos|o povo)|sar\w* (a cidade|todos))\b/,'aurora'],
+ [/\b(me cur\w*|cur\w* me|minha vida|me sar\w*)\b/,'curarme'],
+ [/\b(cur\w*|sar\w*)\b/,'cura'],
+ [/\b(convert\w*|preg\w*|fieis|adorar|adorem|cult\w*)\b/,'pregar'],
+ [/\b(cri\w*|solt\w*|invoc\w*|faz\w* nascer|bot\w*)\b/,'criar'],
+ [/\b(relatorio|situacao|resumo|como (esta|anda|vai) o mundo|quais (sao )?as cidades|lista\w* as cidades)\b/,'relatorio'],
+ [/\b(espi\w*|investig\w*|detalhes|informac\w*|fala\w* (sobre|de)|como (esta|anda|vai))\b/,'espiar'],
+ [/\b(mostr\w*|onde fica|onde esta|leva\w* a camera)\b/,'mostrar']
+];
+const DIR38 = {norte:(a,b)=>a.cy-b.cy, sul:(a,b)=>b.cy-a.cy, leste:(a,b)=>b.cx-a.cx, oeste:(a,b)=>a.cx-b.cx};
+function achaCidades38(t,ctx){ // devolve [{v,i}] na ordem em que aparecem na frase
+ const R=[], C=state.villages, av=avEnt();
+ for(const v of C){ const nn=n38(v.name); let i=-1; while((i=t.indexOf(nn,i+1))>=0){ const ok=(i===0||t[i-1]===' ')&&(i+nn.length===t.length||t[i+nn.length]===' '); if(ok) R.push({v,i,len:nn.length}); } }
+ // mesma cidade escrita duas vezes, ou duas cidades com o mesmo nome: fica a maior
+ const best=new Map(); for(const r of R){ const k=r.i; const o=best.get(k); if(!o||pop38(r.v)>pop38(o.v)) best.set(k,r); } R.length=0; R.push(...best.values());
+ const m1=(re,fn)=>{ let m; const g=new RegExp(re.source,'g'); while((m=g.exec(t))){ const v=fn(m); if(v) R.push({v,i:m.index,len:m[0].length}); } };
+ if(C.length){
+  m1(/\b(?:do|da|no|na|ao|a) (norte|sul|leste|oeste)\b/,m=>C.slice().sort(DIR38[m[1]])[0]);
+  m1(/\b(maior|mais forte|mais populosa|mais poderosa)\b/,()=>C.slice().sort((a,b)=>pop38(b)-pop38(a))[0]);
+  m1(/\b(menor|mais fraca|mais pequena)\b/,()=>C.slice().sort((a,b)=>pop38(a)-pop38(b))[0]);
+  m1(/\bmais rica\b/,()=>C.slice().sort((a,b)=>coinsOf(b)-coinsOf(a))[0]);
+  m1(/\bmais pobre\b/,()=>C.slice().sort((a,b)=>coinsOf(a)-coinsOf(b))[0]);
+  if(av) m1(/\b(mais perto|mais proxima|minha cidade|esta cidade|essa cidade|cidade daqui|daqui)\b/,()=>C.slice().sort((a,b)=>Math.hypot(a.cx-av.x,a.cy-av.y)-Math.hypot(b.cx-av.x,b.cy-av.y))[0]);
+  if(ctx.cidade) m1(/\b(dele|dela|deles|delas|ela|la|mesma cidade|essa mesma|aliado|aliada|inimig[oa])\b/,m=>{ if(/aliad/.test(m[1])) return aliados38(ctx.cidade)[0]||null; if(/inimig/.test(m[1])) return emGuerra38(ctx.cidade)[0]||null; return ctx.cidade; });
+ }
+ R.sort((a,b)=>a.i-b.i); const out=[]; for(const r of R) if(!out.some(o=>o.v===r.v)) out.push(r); return out;
+}
+function achaPessoas38(t,ctx){
+ const R=[], av=avEnt(), seen=new Map();
+ for(const o of state.ents){ if(o.sp!=='human'||o.hp<=0||isAv(o)||!o.name) continue; const nn=n38(o.name); if(nn.length<3) continue; (seen.get(nn)||seen.set(nn,[]).get(nn)).push(o); }
+ for(const [nn,L] of seen){ let i=-1; while((i=t.indexOf(nn,i+1))>=0){ const ok=(i===0||t[i-1]===' ')&&(i+nn.length===t.length||t[i+nn.length]===' '); if(!ok) continue;
+  const o=L.slice().sort((a,b)=>(b.job==='rei')-(a.job==='rei')||(av?Math.hypot(a.x-av.x,a.y-av.y)-Math.hypot(b.x-av.x,b.y-av.y):0))[0]; R.push({e:o,i}); } }
+ if(ctx.pessoa&&ctx.pessoa.hp>0){ const m=/\b(ele|ela|dele|dela|o mesmo|a mesma)\b/.exec(t); if(m&&!R.length) R.push({e:ctx.pessoa,i:m.index}); }
+ R.sort((a,b)=>a.i-b.i); return R;
+}
+const nP38 = s => String(s==null?'':s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9 ,;.]+/g,' ').replace(/\s+/g,' ').trim();
+function blank38(t){ for(const v of state.villages){ const nn=n38(v.name); if(nn.length<3) continue; let i=-1; while((i=t.indexOf(nn,i+1))>=0){ const ok=(i===0||!/[a-z0-9]/.test(t[i-1]))&&(i+nn.length===t.length||!/[a-z0-9]/.test(t[i+nn.length])); if(ok) t=t.slice(0,i)+'#'.repeat(nn.length)+t.slice(i+nn.length); } } return t; }
+function partes38(txt){
+ let t=' '+nP38(txt)+' ';
+ t=t.replace(/\bquando\b[^,;]*?\b(comec\w*|acab\w*|termin\w*|cheg\w*|vier|estourar)\b/g,' | ');
+ t=t.replace(/\s(e depois disso|depois disso|e depois|depois|em seguida|e entao|entao|e tambem|alem disso|logo apos|apos isso|e ai)\s/g,' | ');
+ // "e" e vírgula só separam quando o pedaço da direita tem um verbo próprio
+ const P=[]; for(const bloco of t.split('|')){ const sub=bloco.split(/\s+e\s+|,|;|\./); let cur='';
+  for(const s of sub){ const temVerbo=!!verbo38(s); if(cur&&temVerbo&&verbo38(cur)){ P.push(cur); cur=s; } else cur=cur?cur+' e '+s:s; }
+  if(cur.trim()) P.push(cur); }
+ return P.map(s=>s.replace(/\s+/g,' ').trim()).filter(Boolean);
+}
+function verbo38(t){ let best=null; t=' '+blank38(n38(t))+' '; VERBOS38.forEach(([re,k],ord)=>{ const m=re.exec(t); if(m&&(!best||m.index<best.i||(m.index===best.i&&ord<best.ord))) best={k,i:m.index,ord}; }); return best; }
+function lugar38(t,cid){ const av=avEnt(); if(cid&&!/\b(aqui|onde estou|na minha frente|perto de mim|do meu lado)\b/.test(t)) return {x:cid.cx+.5,y:cid.cy+.5,nome:`no meio de ${cid.name}`};
+ if(!av) return null; const f=av.face||1; return {x:av.x+f*5,y:av.y,nome:'na sua frente'}; }
+function passo38(t,ctx){
+ t=n38(t); const vb=verbo38(t); if(!vb) return null; let k=vb.k;
+ const C=achaCidades38(t,ctx), Pp=achaPessoas38(t,ctx).filter(p=>!C.some(c=>p.i>=c.i&&p.i<c.i+(c.len||0))), num=(/\b(\d{1,7})\b/.exec(t)||[])[1], av=avEnt();
+ let cidade=C[0]&&C[0].v, cidade2=C[1]&&C[1].v, pessoa=Pp[0]&&Pp[0].e;
+ const fala=/\b(rei|rainha)\b/.test(t);
+ if(!pessoa&&fala&&cidade&&!['coroar','destronar','ganancia','mansidao'].includes(k)) pessoa=rei38(cidade);
+ const a={};
+ const precisa=(nome,ex)=>({erro:`Para ${AP[k].e} ${AP[k].n} preciso saber ${nome}. Exemplo: “${ex}”.`,k});
+ const ex1=()=>(state.villages[0]||{name:'Vale Verde'}).name, ex2=()=>(state.villages[1]||{name:'Boa Vista'}).name;
+ switch(k){
+  case 'queimar': if(pessoa&&(fala||!cidade||Pp.length)) { k='queimar'; a.pessoa=pessoa; } else if(cidade){ k='incendiar'; a.cidade=cidade; } else return precisa('quem ou qual cidade',`queima ${ex1()}`); break;
+  case 'matar': if(!pessoa) return precisa('quem',`mata o rei de ${ex1()}`); a.pessoa=pessoa; if(!anjoAdm){ k='raio'; } break;
+  case 'raio': case 'lobo': case 'cura': if(!pessoa) return precisa('quem',`raio no rei de ${ex1()}`); a.pessoa=pessoa; break;
+  case 'coroar': if(!pessoa) return precisa('quem vai ser rei',`coroa Fulano`); a.pessoa=pessoa; break;
+  case 'guerra': case 'alianca': case 'submeter': {
+   if(cidade&&cidade2){ a.cidade=cidade; a.cidade2=cidade2;
+    // "X é atacada por Y" / "Y obedeça X": o primeiro que aparece é o alvo
+    if(/\b(atacad[oa]|invadid[oa]|conquistad[oa]|por)\b/.test(t)&&k==='guerra'){ a.cidade=cidade2; a.cidade2=cidade; } }
+   else if(cidade&&k==='guerra'&&ctx.cidade&&ctx.cidade!==cidade){ a.cidade=ctx.cidade; a.cidade2=cidade; }
+   else if(cidade&&k==='guerra'){ const at=state.villages.filter(v=>v!==cidade&&!aliados38(cidade).includes(v)&&v.lord!==cidade.id).sort((p,q)=>Math.hypot(p.cx-cidade.cx,p.cy-cidade.cy)-Math.hypot(q.cx-cidade.cx,q.cy-cidade.cy))[0];
+    if(!at) return {erro:`Não achei ninguém para atacar ${cidade.name}.`,k}; a.cidade=at; a.cidade2=cidade; }
+   else return precisa('as duas cidades',k==='guerra'?`${ex1()} ataca ${ex2()}`:k==='alianca'?`aliança entre ${ex1()} e ${ex2()}`:`${ex2()} vira vassala de ${ex1()}`);
+   break; }
+  case 'romper': case 'paz': if(!cidade) return precisa('qual cidade',k==='paz'?`paz entre ${ex1()} e ${ex2()}`:`${ex1()} trai o aliado`); a.cidade=cidade; if(cidade2) a.cidade2=cidade2; break;
+  case 'montanha': case 'lago': case 'floresta': case 'deserto': case 'fertil': a.lugar=lugar38(t,cidade); if(!a.lugar) return precisa('onde',`floresta aqui`); break;
+  case 'criar': { if(/\b(cidade|vila)\b/.test(t)){ k='fundar'; break; } const w=Object.keys(BICHO38).find(b=>new RegExp('\\b'+b+'\\b').test(t)); if(!w) return {erro:'Que bicho? Lobo, urso, leão, dragão, cavalo, vaca, ovelha, galinha, coelho ou cachorro.',k};
+   a.bicho=BICHO38[w]; if(/tanque/.test(t)) a.bicho='dragonT'; a.lugar=lugar38(t,cidade); if(num) a.qtd=+num; break; }
+  case 'fe': case 'ouro': if(num) a.qtd=+num; break;
+  case 'teleporte': if(!cidade) return precisa('para onde',`me leva para ${ex1()}`); a.cidade=cidade; break;
+  case 'relatorio': case 'eclipse': case 'fundar': case 'curarme': case 'dia': break;
+  case 'tesouro': if(!cidade&&/\b(mim|eu|meu bolso)\b/.test(t)&&anjoAdm){ k='ouro'; if(num) a.qtd=+num; break; } if(!cidade) return precisa('qual cidade',`tesouro para ${ex1()}`); a.cidade=cidade; break;
+  default: { const P=AP[k]; if(P.alvo.includes('cidade')){ if(!cidade&&pessoa&&pessoa.vid) cidade=villageById(pessoa.vid); if(!cidade) return precisa('qual cidade',`${P.n.toLowerCase()} em ${ex1()}`); a.cidade=cidade; } }
+ }
+ if(a.cidade) ctx.cidade=a.cidade2&&['guerra','submeter'].includes(k)?a.cidade2:a.cidade; if(a.pessoa) ctx.pessoa=a.pessoa;
+ if(AP[k].adm&&!anjoAdm) return {erro:`${AP[k].e} ${AP[k].n} só funciona no modo administrador 🔑.`,k};
+ return {k,a};
+}
+function descreve38(s){ const P=AP[s.k], a=s.a, nm=v=>v?v.name:'?';
+ const alvo=s.k==='guerra'?`${nm(a.cidade)} ataca ${nm(a.cidade2)}`:s.k==='submeter'?`${nm(a.cidade2)} obedece ${nm(a.cidade)}`:a.cidade2?`${nm(a.cidade)} e ${nm(a.cidade2)}`:a.cidade?nm(a.cidade):a.pessoa?`${a.pessoa.name}${a.pessoa.job==='rei'?' (rei de '+nm(villageById(a.pessoa.vid))+')':''}`:a.lugar?a.lugar.nome:'';
+ const extra=a.bicho?`${a.qtd||''} ${SPECIES[a.bicho].e}`:a.qtd?` ${a.qtd}`:'';
+ return `${P.e} ${P.n}${alvo?': '+alvo:''}${extra?' · '+extra:''}`; }
+const SAUDA38 = [[/\b(oi|ola|bom dia|boa tarde|boa noite|e ai)\b/,()=>pick(['Estou aqui, meu senhor. O que deseja?','Às suas ordens. O céu escuta.','Olá! Diga o que quer que eu faça no mundo.'])],
+ [/\b(quem e voce|quem es tu|seu nome|como se chama)\b/,()=>`Sou ${ANJO.NOME}, o anjo que serve você. Faço o que você mandar no mundo, usando a sua Fé.`],
+ [/\b(ajuda|socorro|como funciona|o que (voce )?(faz|sabe fazer)|comandos)\b/,()=>{ anjoTab='ajuda'; return 'Abri a aba ❓ Ajuda com tudo o que eu sei fazer.'; }],
+ [/\b(obrigad\w*|valeu)\b/,()=>pick(['Sempre às ordens.','É uma honra servir.','O céu agradece a sua Fé.'])]];
+function anjoOrdem(txt){
+ const A=a38(), raw=String(txt||'').trim(); if(!raw) return;
+ diz38('voce',raw); anjoPlano=null;
+ const t=n38(raw);
+ if(anjoAdm&&/^(sair|sai|fecha) (do )?(modo )?admin/.test(t)){ anjoAdm=false; diz38('anjo','Saí do modo administrador.'); return; }
+ const ctx={}, passos=[], erros=[];
+ for(const p of partes38(raw)){ const s=passo38(p,ctx); if(!s) continue; if(s.erro) erros.push(s.erro); else passos.push(s); }
+ if(!passos.length){ if(erros.length){ diz38('anjo',erros[0]); return; }
+  const S=SAUDA38.find(([re])=>re.test(' '+t+' ')); if(S){ diz38('anjo',S[1]()); return; }
+  const c=state.villages.slice(0,2).map(v=>v.name); diz38('anjo',`Não entendi. Tente assim: “faz chover em ${c[0]||'Vale Verde'}”, “${c[0]||'Vale Verde'} ataca ${c[1]||'Boa Vista'}” ou “relatório do mundo”. A aba ❓ Ajuda tem a lista.`); return; }
+ const custo=passos.reduce((s,p)=>s+custo38(p.k),0), perigo=passos.some(p=>AP[p.k].perigo);
+ const pedeOk=perigo||(!anjoAdm&&(passos.length>1||custo>=25));
+ if(!pedeOk){ fazPlano38({passos,erros}); return; }
+ anjoPlano={passos,erros,custo};
+ diz38('anjo',`Entendi assim${erros.length?' (uma parte eu não entendi)':''}. Confirma?`);
+}
+function fazPlano38(Pl){ const L=[]; for(const s of Pl.passos){ const r=anjoFaz(s.k,s.a); L.push((r.ok?(AP[s.k].g==='ver'?'':'✅ '):'❌ ')+r.msg); if(!r.ok&&AP[s.k].g!=='ver') break; }
+ for(const e of Pl.erros||[]) L.push('❓ '+e);
+ const ok=L.every(x=>!x.startsWith('❌'));
+ diz38('anjo',(ok&&Pl.passos.some(s=>AP[s.k].g!=='ver')?pick(anjoAdm?['Sim, administrador.','Feito, administrador.']:['Feito, meu senhor.','Está feito. O céu viu.','Como quiser.','Às suas ordens.'])+'\n':'')+L.join('\n'));
+ anjoPlano=null; }
+function diz38(q,t){ const A=a38(); A.log.push({q,t:String(t)}); if(A.log.length>ANJO.LOG_MAX) A.log.splice(0,A.log.length-ANJO.LOG_MAX); if(q==='anjo') anjoFala=String(t); anjoVisto=performance.now(); }
+
+/* ---------- painel ---------- */
+function anjoCss(){ if(document.getElementById('a38css')) return; const st=document.createElement('style'); st.id='a38css'; st.textContent=`
+#anjo38{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:min(560px,95vw);max-height:88vh;overflow:auto;background:var(--panel,#162022);border:1px solid #e8d48a88;border-radius:16px;padding:12px 14px;z-index:42;color:#eef;box-shadow:0 10px 40px #000a,0 0 30px #ffe9a022;font-size:14px}
+#anjo38[hidden]{display:none}
+#anjo38 h2{margin:0 0 4px;font-size:18px;padding-right:34px}
+#anjo38 .x{position:absolute;right:10px;top:8px}
+#anjo38 button{padding:7px 10px;border-radius:10px;font-size:13px}
+#anjo38 button:disabled,#anjo38 button.dim{opacity:.45}
+#anjo38 .tabs{display:flex;gap:6px;margin:8px 0;flex-wrap:wrap}
+#anjo38 .tabs button.on{background:#4a4220;border-color:#e8d48a}
+#anjo38 .adm{background:#5a1e1e;border:1px solid #ff8a7a;border-radius:10px;padding:6px 10px;margin:6px 0;font-weight:700}
+#anjo38 .fala{font-style:italic;background:#fff6d012;border-left:3px solid #e8d48a;border-radius:10px;padding:8px 10px;margin:8px 0;white-space:pre-line}
+#anjo38 .sec{margin:10px 0 4px;font-weight:700;opacity:.9}
+#anjo38 .btns{display:flex;flex-wrap:wrap;gap:6px}
+#anjo38 .btns button small{opacity:.75;margin-left:4px}
+#anjo38 .card{background:#ffffff0d;border:1px solid #ffffff22;border-radius:12px;padding:10px;margin:6px 0}
+#anjo38 .card p{margin:4px 0 8px;opacity:.85}
+#anjo38 label{display:block;margin:6px 0 2px;font-size:12px;opacity:.8}
+#anjo38 select,#anjo38 input{width:100%;padding:8px;border-radius:10px;border:1px solid #ffffff33;background:#0c1214;color:#eef;font-size:14px;box-sizing:border-box}
+#anjo38 .chat{max-height:34vh;overflow:auto;display:flex;flex-direction:column;gap:6px;margin:6px 0}
+#anjo38 .msg{border-radius:12px;padding:7px 10px;white-space:pre-line;max-width:88%}
+#anjo38 .msg.voce{align-self:flex-end;background:#2d4a2a}
+#anjo38 .msg.anjo{align-self:flex-start;background:#4a4220}
+#anjo38 .row{display:flex;gap:6px;margin-top:6px}
+#anjo38 .row input{flex:1}
+#anjo38 .chips{display:flex;flex-wrap:wrap;gap:5px;margin:6px 0}
+#anjo38 .chips button{border-radius:999px;padding:5px 10px;font-size:12px;background:#ffffff10}
+#anjo38 .plano{background:#ffffff10;border:1px dashed #e8d48a;border-radius:12px;padding:8px 10px;margin:6px 0}
+#anjo38 .plano ol{margin:4px 0 6px 18px;padding:0}
+#anjo38 .small{font-size:12px;opacity:.8}
+#anjo38 table{border-collapse:collapse;width:100%;font-size:12px} #anjo38 td{border-bottom:1px solid #ffffff14;padding:4px}
+@media (max-height:520px){ #anjo38{padding:8px 10px;max-height:94vh} #anjo38 .chat{max-height:26vh} #anjo38 .fala{margin:4px 0;padding:6px 8px} }
+`; document.head.appendChild(st); }
+function anjoBtnSync(){
+ const b=$('a38Btn'); if(!b) return; const p=player(), V=state.v27, on=!!p&&isAv(p)&&(p.w7.semi||anjoAdm)&&!(V&&V.run);
+ b.hidden=!on; if(!on&&anjoEl&&!anjoEl.hidden) anjoFecha();
+ if(on&&V){ const A=a38(); if(!A.dica){ A.dica=1; setTimeout(()=>toast('😇 Novo: toque em 😇 anjo na barra para chamar o seu anjo.'),1800); } }
+ if(anjoEl&&!anjoEl.hidden){ const f=$('a38fe'); if(f){ const s=fe38(); if(f.textContent!==s) f.textContent=s; } }
+}
+const fe38 = () => { const V=state.v27; return V?`🙏 Fé ${Math.floor(V.fe)} · fiéis ${v27Fieis()}`:''; };
+function anjoAbre(){
+ anjoCss(); const av=avEnt(); if(!av){ toast('Crie e controle o seu personagem para chamar o anjo.'); return; }
+ if(!av.w7.semi&&!anjoAdm){ toast('Revele-se ✨ (modo semideus) para chamar o anjo.'); return; }
+ if(!anjoEl){ anjoEl=document.createElement('div'); anjoEl.id='anjo38'; anjoEl.hidden=true; document.body.appendChild(anjoEl);
+  anjoEl.addEventListener('click',e=>{ const b=e.target.closest('button[data-a]'); if(!b) return; e.stopPropagation(); try{ anjoClick(b); }catch(err){ v31Err(err); } });
+  anjoEl.addEventListener('change',e=>{ const s=e.target.closest('[data-arg]'); if(!s) return; anjoArgs[s.dataset.arg]=s.value; if(s.dataset.re) anjoRender(); });
+  anjoEl.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const i=e.target.closest('input'); if(!i) return; e.preventDefault(); if(i.id==='a38txt') anjoClick({dataset:{a:'enviar'}}); else if(i.id==='a38senha') anjoClick({dataset:{a:'senha'}}); } e.stopPropagation(); });
+  for(const ev of ['pointerdown','touchstart','wheel']) anjoEl.addEventListener(ev,e=>e.stopPropagation(),{passive:true}); }
+ const A=a38();
+ if(anjoEl.hidden){ v27Fx({k:'col',x:av.x+1.2,y:av.y-.5,t:0,dur:1.6}); sfx('lvl',av.x,av.y);
+  if(!A.vezes&&!A.log.length) diz38('anjo',`Eu sou ${ANJO.NOME}, o seu anjo. Escolha um poder em ✨ Poderes ou me dê uma ordem em 💬 Ordens. Cada coisa que eu faço gasta a sua Fé 🙏.`);
+  else if(!anjoFala) anjoFala=pick(['Chamou, meu senhor?','Estou aqui. O que deseja?','Às suas ordens.']); }
+ anjoAberto=true; anjoVisto=performance.now(); anjoEl.hidden=false; anjoRender(); }
+function anjoFecha(){ if(anjoEl) anjoEl.hidden=true; anjoAberto=false; anjoVisto=performance.now(); }
+function opcCidades38(arg,opc){ const C=state.villages.slice().sort((a,b)=>a.name.localeCompare(b.name)); if(!C.length) return '<div class="small">Ainda não existe nenhuma cidade.</div>';
+ if(!opc&&(anjoArgs[arg]==null||!C.some(v=>String(v.id)===String(anjoArgs[arg])))) anjoArgs[arg]=String(C[arg==='cidade2'&&C.length>1?1:0].id);
+ return `<select data-arg="${arg}">${opc?`<option value="">— nenhuma —</option>`:''}${C.map(v=>{ const k=rei38(v); return `<option value="${v.id}"${String(v.id)===String(anjoArgs[arg])?' selected':''}>${esc38(v.name)} · 👥${pop38(v)}${k?' · 👑 '+esc38(k.name):''}</option>`; }).join('')}</select>`; }
+function pessoasLista38(){ const av=avEnt(), kings=state.villages.map(rei38).filter(Boolean);
+ const perto=state.ents.filter(o=>o.sp==='human'&&o.hp>0&&!isAv(o)&&o.id!==state.playerId&&!kings.includes(o)&&av&&Math.hypot(o.x-av.x,o.y-av.y)<25).sort((a,b)=>Math.hypot(a.x-av.x,a.y-av.y)-Math.hypot(b.x-av.x,b.y-av.y)).slice(0,30);
+ return {kings,perto}; }
+function campo38(P,al,opc){ const rot=(P.rot&&P.rot[al])||({cidade:'Cidade',cidade2:'Outra cidade',pessoa:'Pessoa',lugar:'Onde',bicho:'Bicho',qtd:'Quantidade'})[al]+(opc?' (opcional)':'');
+ let h=`<label>${rot}</label>`;
+ if(al==='cidade'||al==='cidade2') h+=opcCidades38(al,opc);
+ else if(al==='pessoa'){ const {kings,perto}=pessoasLista38(); const all=[...kings,...perto]; if(!all.length) return h+'<div class="small">Ninguém por perto. Chegue mais perto das pessoas ou escolha um rei.</div>';
+  if(!all.some(o=>String(o.id)===String(anjoArgs.pessoa))) anjoArgs.pessoa=String(all[0].id);
+  h+=`<select data-arg="pessoa"><optgroup label="👑 Reis e rainhas">${kings.map(o=>`<option value="${o.id}"${String(o.id)===String(anjoArgs.pessoa)?' selected':''}>${esc38(o.name)}, ${gnd(o,'rei','rainha')} de ${esc38((villageById(o.vid)||{}).name||'?')}</option>`).join('')}</optgroup><optgroup label="🧍 Perto de você">${perto.map(o=>`<option value="${o.id}"${String(o.id)===String(anjoArgs.pessoa)?' selected':''}>${esc38(o.name)} (${esc38(jobN38(o))}${o.vid&&villageById(o.vid)?', '+esc38(villageById(o.vid).name):''})</option>`).join('')}</optgroup></select>`; }
+ else if(al==='lugar'){ const C=state.villages.slice().sort((a,b)=>a.name.localeCompare(b.name)); if(anjoArgs.lugar==null) anjoArgs.lugar='aqui';
+  h+=`<select data-arg="lugar"><option value="aqui"${anjoArgs.lugar==='aqui'?' selected':''}>📍 Na sua frente</option>${C.map(v=>`<option value="${v.id}"${String(v.id)===String(anjoArgs.lugar)?' selected':''}>🏰 No meio de ${esc38(v.name)}</option>`).join('')}</select>`; }
+ else if(al==='bicho'){ const L=['wolf','bear','lion','dragon','dragonT','horse','cow','sheep','chicken','rabbit','dog']; if(!L.includes(anjoArgs.bicho)) anjoArgs.bicho='wolf';
+  h+=`<select data-arg="bicho">${L.map(s=>`<option value="${s}"${anjoArgs.bicho===s?' selected':''}>${SPECIES[s].e} ${SPECIES[s].name}</option>`).join('')}</select>`; }
+ else if(al==='qtd') h+=`<input data-arg="qtd" type="number" min="1" inputmode="numeric" placeholder="deixe vazio para o padrão" value="${esc38(anjoArgs.qtd||'')}">`;
+ return h; }
+function args38(P){ const a={}, av=avEnt();
+ for(const al of [...P.alvo,...(P.opc||[])]){ const v=anjoArgs[al];
+  if(al==='cidade'||al==='cidade2'){ const c=v?villageById(+v):null; if(c) a[al]=c; }
+  else if(al==='pessoa'){ const e=v?byId.get(+v):null; if(e&&e.hp>0) a.pessoa=e; }
+  else if(al==='lugar'){ if(!v||v==='aqui'){ if(av) a.lugar={x:av.x+(av.face||1)*5,y:av.y,nome:'na sua frente'}; } else { const c=villageById(+v); if(c) a.lugar={x:c.cx+.5,y:c.cy+.5,nome:`no meio de ${c.name}`}; } }
+  else if(al==='bicho'){ if(SPECIES[v]) a.bicho=v; }
+  else if(al==='qtd'){ const n=parseInt(v,10); if(n>0) a.qtd=n; } }
+ return a; }
+function exemplos38(){ const C=state.villages.slice().sort((a,b)=>pop38(b)-pop38(a)).map(v=>v.name), c1=C[0]||'Vale Verde', c2=C[1]||'Boa Vista', c3=C[2]||C[0]||c2;
+ const L=[`faz chover em ${c1}`,`${c1} declara guerra a ${c2}`,`aliança entre ${c2} e ${c3}`,`o rei do norte trai o aliado e depois queima a cidade do sul`,`recruta um exército em ${c1} e depois ataca ${c2}`,'floresta aqui','relatório do mundo'];
+ if(anjoAdm) L.push('fé 500',`me leva para ${c2}`,'cria 3 lobos aqui');
+ return L; }
+function anjoRender(){
+ if(!anjoEl) return; const A=a38(), V=v27(), av=avEnt(), tab=anjoTab;
+ const B=(a,t,o={})=>`<button data-a="${a}"${o.v!=null?` data-v="${esc38(o.v)}"`:''}${o.dis?' disabled':''} class="${o.on?'on':''}${o.dim?' dim':''}"${o.title?` title="${esc38(o.title)}"`:''}>${t}</button>`;
+ let H=`${B('fechar','✕')}<h2>😇 ${ANJO.NOME}, o seu anjo</h2><div class="small"><span id="a38fe">${fe38()}</span>${anjoAdm?'':' · cada poder gasta Fé; os de visão são grátis'}</div>`;
+ if(anjoAdm) H+=`<div class="adm">🔑 MODO ADMINISTRADOR: tudo grátis, sem recarga e com poderes extras.</div>`;
+ H+=`<div class="tabs">${B('tab','✨ Poderes',{v:'poderes',on:tab==='poderes'})}${B('tab','💬 Ordens',{v:'ordens',on:tab==='ordens'})}${B('tab','🔑 Admin',{v:'admin',on:tab==='admin'})}${B('tab','❓ Ajuda',{v:'ajuda',on:tab==='ajuda'})}</div>`;
+ if(anjoFala&&tab!=='ordens') H+=`<div class="fala">😇 ${esc38(anjoFala)}</div>`;
+ if(tab==='poderes'){
+  if(anjoSel&&AP[anjoSel]){ const P=AP[anjoSel], c=custo38(anjoSel), cd=!anjoAdm&&(P.velho?(V.cd&&V.cd[P.velho]||0):(A.cd[anjoSel]||0))>state.time;
+   H+=`<div class="card"><b style="font-size:16px">${P.e} ${P.n}</b><p>${esc38(P.d)}</p><div class="small">Custo: ${c?c+' 🙏 de Fé':'grátis'}${P.velho&&PODER[P.velho].fe>=25&&!anjoAdm?` · pede ${FIEIS_MIN} fiéis`:''}${cd?' · ⏳ recarregando':''}</div>`;
+   for(const al of P.alvo) H+=campo38(P,al,false); for(const al of P.opc||[]) H+=campo38(P,al,true);
+   H+=`<div class="row">${B('fazer','✅ Mandar o anjo fazer',{dis:!anjoAdm&&V.fe<c})}${B('voltar','↩️ Voltar')}</div></div>`;
+   if(!anjoAdm&&V.fe<c) H+=`<div class="small">Falta Fé. Os cultos de domingo e os fiéis trazem Fé.</div>`; }
+  else { H+='<div class="small">Toque num poder para ver o que ele faz e escolher o alvo.</div>';
+   for(const [g,gn] of AG38){ if(g==='adm'&&!anjoAdm) continue; const ks=Object.keys(AP).filter(k=>AP[k].g===g); H+=`<div class="sec">${gn}</div><div class="btns">`;
+    for(const k of ks){ const P=AP[k], c=custo38(k), cd=!anjoAdm&&(P.velho?(V.cd&&V.cd[P.velho]||0):(A.cd[k]||0))>state.time; H+=B('poder',`${P.e} ${P.n}<small>${c?c+'🙏':'grátis'}${cd?' ⏳':''}</small>`,{v:k,dim:(!anjoAdm&&V.fe<c)||cd,title:P.d}); }
+    H+='</div>'; } } }
+ if(tab==='ordens'){
+  H+=`<div class="small">Escreva o que você quer, do seu jeito. Pode juntar várias ordens com “e depois”. Ordens grandes eu mostro antes e espero você confirmar.</div><div class="chat" id="a38chat">`;
+  for(const m of A.log.slice(-14)) H+=`<div class="msg ${m.q==='voce'?'voce':'anjo'}">${m.q==='voce'?'':'😇 '}${esc38(m.t)}</div>`;
+  H+='</div>';
+  if(anjoPlano){ H+=`<div class="plano"><b>📋 O plano</b><ol>${anjoPlano.passos.map(s=>`<li>${esc38(descreve38(s))}${custo38(s.k)?` <small>(${custo38(s.k)}🙏)</small>`:''}</li>`).join('')}</ol>${anjoPlano.erros.length?`<div class="small">❓ ${anjoPlano.erros.map(esc38).join('<br>❓ ')}</div>`:''}<div class="small">Total: ${anjoPlano.custo?anjoPlano.custo+' 🙏 de Fé':'grátis'} · você tem ${Math.floor(V.fe)}</div><div class="row">${B('sim','✅ Fazer tudo')}${B('nao','❌ Cancelar')}</div></div>`; }
+  H+=`<div class="row"><input id="a38txt" type="text" autocomplete="off" placeholder="Ex.: ${esc38(exemplos38()[1])}">${B('enviar','Enviar')}</div>`;
+  H+=`<div class="small" style="margin-top:6px">Toque num exemplo para usar:</div><div class="chips">${exemplos38().map(x=>B('ex',esc38(x),{v:x})).join('')}</div>`; }
+ if(tab==='admin'){
+  if(!anjoAdm) H+=`<div class="card"><b>🔑 Modo administrador</b><p>Com a senha, o anjo obedece ordens mais profundas: nada gasta Fé, nada recarrega, e aparecem poderes extras (encher a Fé, ouro, teletransporte, criar bichos e dragões, matar, pular o tempo).</p><label>Senha</label><div class="row"><input id="a38senha" type="password" autocomplete="off" placeholder="digite a senha">${B('senha','Entrar')}</div></div><div class="small">A senha vale só enquanto o jogo está aberto. Ao fechar o app, o modo administrador desliga sozinho.</div>`;
+  else H+=`<div class="card"><b>🔑 Você está no modo administrador</b><p>Tudo grátis e sem recarga. Os poderes extras estão no fim da aba ✨ Poderes, no grupo 🔑 Administrador. Nas 💬 Ordens você também pode escrever: “fé 500”, “ouro 1000”, “me leva para ${esc38((state.villages[0]||{name:'Vale Verde'}).name)}”, “cria 2 dragões aqui”, “mata o rei de …”, “pula meio dia”.</p>${B('sairadm','🚪 Sair do modo administrador')}</div>`; }
+ if(tab==='ajuda'){
+  H+=`<div class="card"><b>Como chamar</b><p>Revele-se ✨ (modo semideus). Aparece o botão 😇 anjo na barra. Toque nele e o anjo desce ao seu lado.</p>
+<b>✨ Poderes</b><p>Toque num poder, escolha o alvo nas listas (cidade, pessoa ou lugar) e toque em ✅ Mandar o anjo fazer. O número ao lado de cada poder é quanto ele gasta de Fé 🙏. ⏳ quer dizer que ainda está recarregando.</p>
+<b>💬 Ordens</b><p>Escreva como se falasse com uma pessoa. O anjo entende o nome das cidades e das pessoas, e também “a cidade do norte/sul/leste/oeste”, “a maior cidade”, “a mais rica”, “a mais fraca”, “a cidade mais perto”, “o rei de …”, “aqui”. Para várias ordens, use “e depois”. Ordens grandes ou perigosas aparecem como plano e só acontecem quando você confirma.</p></div>
+<div class="sec">Palavras que o anjo entende</div><table>${[['⚔️','guerra, ataca, invade, conquista'],['🤝','aliança, pacto · 💔 trai, rompe · 🏳️ paz, trégua'],['⛓️','vassala, submete · ↩️ recua, volta para casa'],['👑','coroa · 🪓 derruba o rei · 💰 ganancioso · 🕊️ manso'],['🛡️','recruta, exército · 🦁 abençoa o exército · 🎉 festa'],['🔥','queima, incendeia · 💀 destrói, arrasa · ☄️ chuva de fogo · ⚡ raio'],['🦠','peste · 🐀 ratos · 🌊 dilúvio · 🌋 terremoto · ☀️ seca'],['🌧️','chuva · 🌊 fartura · 🌾 colheita · 🌅 cura a cidade · 💚 cura Fulano'],['⛰️','montanha · 💧 lago · 🌳 floresta · 🏜️ deserto · 🌱 terra fértil'],['🧱','muralha · 📦 madeira, comida · 🪙 tesouro · 🏠 reforma · 🏰 funda uma cidade'],['📜','relatório · 🔎 espia … · 📍 mostra … · 📿 pregação, fiéis']].map(([e,t])=>`<tr><td>${e}</td><td>${t}</td></tr>`).join('')}</table>
+<div class="small" style="margin-top:8px">O anjo funciona sem internet: ele lê a frase no próprio jogo. Se não entender, ele diz o que faltou e dá um exemplo.</div>`; }
+ anjoEl.innerHTML=H;
+ const ch=anjoEl.querySelector('#a38chat'); if(ch) ch.scrollTop=ch.scrollHeight;
+ const pn=anjoEl.querySelector('.plano'); if(pn) try{ pn.scrollIntoView({block:'nearest'}); }catch(err){}
+}
+function anjoClick(b){
+ const a=b.dataset.a, v=b.dataset.v;
+ if(a==='fechar'){ anjoFecha(); return; }
+ if(a==='tab'){ anjoTab=v; anjoSel=null; anjoRender(); if(v==='ordens'){ const i=$('a38txt'); if(i&&matchMedia('(pointer:fine)').matches) i.focus(); } return; }
+ if(a==='poder'){ anjoSel=v; anjoRender(); return; }
+ if(a==='voltar'){ anjoSel=null; anjoRender(); return; }
+ if(a==='fazer'){ const P=AP[anjoSel]; if(!P) return; for(const s of anjoEl.querySelectorAll('[data-arg]')) anjoArgs[s.dataset.arg]=s.value;
+  const r=anjoFaz(anjoSel,args38(P)); diz38('anjo',(r.ok?(P.g==='ver'?'':'✅ '):'❌ ')+r.msg); if(!r.ok) toast(r.msg); anjoRender(); return; }
+ if(a==='enviar'){ const i=$('a38txt'); const t=i?i.value:''; if(!t.trim()) return; anjoOrdem(t); anjoRender(); const j=$('a38txt'); if(j&&matchMedia('(pointer:fine)').matches) j.focus(); return; }
+ if(a==='ex'){ const i=$('a38txt'); if(i){ i.value=v; i.focus(); } return; }
+ if(a==='sim'){ if(anjoPlano) fazPlano38(anjoPlano); anjoRender(); return; }
+ if(a==='nao'){ anjoPlano=null; diz38('anjo','Cancelado. Não fiz nada.'); anjoRender(); return; }
+ if(a==='senha'){ const i=$('a38senha'), s=i?i.value:''; if(h38(s)===ANJO.SENHA_H){ anjoAdm=true; diz38('anjo','🔑 Modo administrador ligado. Agora faço tudo sem custo e com poderes extras.'); toast('🔑 Modo administrador ligado.'); const av=avEnt(); if(av) v27Fx({k:'col',x:av.x,y:av.y,t:0,dur:2}); }
+  else { anjoFala='Senha errada. Só o dono do mundo sabe a senha.'; toast('Senha errada.'); } anjoRender(); anjoBtnSync(); return; }
+ if(a==='sairadm'){ anjoAdm=false; diz38('anjo','Saí do modo administrador. Voltamos às regras da Fé.'); anjoRender(); anjoBtnSync(); return; }
+}
+/* o anjo aparece voando ao lado do semideus enquanto você fala com ele */
+function anjoDraw(now){
+ const av=avEnt(); if(!av||av.w7.hid||!(anjoAberto||performance.now()-anjoVisto<ANJO.VISTO_MS)) return;
+ const u=cellPx, f=av.face||1, x=(av.x-f*1.3-viewL)*u, y=(av.y-1.9-viewT)*u+Math.sin(now/380)*u*.18;
+ if(x<-u*3||y<-u*3||x>canvasW+u*3||y>canvasH+u*3) return;
+ const g=ctx.createRadialGradient(x,y,0,x,y,u*1.4); g.addColorStop(0,'rgba(255,240,180,.55)'); g.addColorStop(1,'rgba(255,240,180,0)'); ctx.fillStyle=g; ctx.fillRect(x-u*1.4,y-u*1.4,u*2.8,u*2.8);
+ const w=Math.sin(now/160)*.25; ctx.fillStyle='rgba(255,255,255,.9)';
+ for(const s of [-1,1]){ ctx.beginPath(); ctx.ellipse(x+s*u*.45,y-u*.05,u*.5,u*.2,s*(.5+w),0,7); ctx.fill(); }
+ ctx.font=`${Math.max(10,u*.95)|0}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('😇',x,y); ctx.textAlign='start'; ctx.textBaseline='alphabetic';
+}
+{ const ab=$('actionbar'); if(ab){ const b=document.createElement('button'); b.className='tool role'; b.id='a38Btn'; b.hidden=true; b.title='Chamar o anjo'; b.innerHTML='😇<small>anjo</small>'; b.onclick=()=>{ if(anjoEl&&!anjoEl.hidden) anjoFecha(); else anjoAbre(); }; ab.appendChild(b); } }
+{ const _uc=updateContext; updateContext=function(){ _uc.apply(this,arguments); try{ anjoBtnSync(); }catch(err){ v31Err(err); } }; }
+{ const _ov=v27Overlay; v27Overlay=function(now){ _ov(now); try{ anjoDraw(now); }catch(err){ v31Err(err); } }; }
+{ const _ld=load; load=function(){ const r=_ld.apply(this,arguments); anjoPlano=null; anjoFala=''; anjoSel=null; anjoArgs={}; anjoFecha(); return r; }; }
+window.MVanjo={AP,anjoFaz,anjoOrdem,partes38,passo38,verbo38,achaCidades38,anjoAbre,anjoFecha,anjoRender,fazPlano38,h38,get adm(){return anjoAdm;},set adm(x){anjoAdm=!!x;},get plano(){return anjoPlano;},get fala(){return anjoFala;},a38,dbg:{get state(){return state;},v27,v27MakeAvatar,possess,v27Reveal,avEnt,members,rei38,aliados38,emGuerra38}};
+/* =====================================================================
+   VERSÃO 39 — QUERUBIM 👼, TRÂNSITO 🚦 E RUAS EM GRADE
+   · o anjo vira um querubim em pixel art que voa atrás do semideus
+     e obedece ordens pessoais: seguir, proteger, vigiar, buscar madeira
+     ou pedra, voltar e dispensar
+   · carroças (e carros, na era industrial) andam pelas ruas de terra e
+     de pedra das cidades, estacionam no quintal das casas e podem
+     atropelar quem estiver no caminho (quanto mais rápido, pior)
+   · ruas sem saída são ligadas à rede, as cidades erguem mais sobrados
+     e avenidas e trilhos seguem os quadrados (retas de 45°)
+   ===================================================================== */
+const Q39 = {VEL:6.5, VIGIA_R:9, PROT_R:8, TIRO_CD:1.1, DANO:7, CARGA:4, COLHE:2.2, BUSCA_R:28, VIAGENS:3};
+const TR39 = {MAX:48, POR:7, CARROCA:1.25, CARRO:2.5, VIDA:DAY*.7, PARA:[DAY*.04,DAY*.12], FREIA:.96, OLHA:.15, DIA_MAX:1};
+const on39 = k => typeof CTRL43==='undefined'||CTRL43.on(k);
+{ const G=CTRL43.LISTA.find(g=>g[0]==='Cidades'); const L=G?G[1]:CTRL43.LISTA[0][1];
+  L.push(['transito','🚦 Trânsito nas cidades','carroças e carros andando nas ruas e estacionando nas casas'],
+         ['atropelar','💥 Atropelamentos','desligado, os veículos sempre freiam a tempo'],
+         ['ruas39','🛣️ Ligar ruas sem saída','a cidade abre ruas para ligar os becos à rede'],
+         ['vias45','📐 Vias seguindo os quadrados','avenidas e trilhos em retas de 45°, sem curva suave']); }
+
+/* ---------------------------------------------------------------------
+   QUERUBIM
+   --------------------------------------------------------------------- */
+ANJO.NOME='Querubim';
+let q39=null;            // posição e estado do voo (não vai no save)
+const fl39=[];           // flechas de luz voando (só desenho)
+const qOrd39 = () => { const A=a38(); return A.q39||(A.q39={modo:'seguir',on:0,vx:0,vy:0,busca:'wood',viagens:0}); };
+const qNome39 = {seguir:'seguindo você',proteger:'protegendo você',vigiar:'vigiando um lugar',buscar:'buscando',dorme:'dispensado'};
+function qAtivo39(){ const av=avEnt(); if(!av||av.hp<=0||av.w7.hid||av.inside!=null) return null; if(!av.w7.semi&&!anjoAdm) return null; const O=qOrd39(); return O.on?av:null; }
+function qChama39(){ const O=qOrd39(), av=avEnt(); if(!O.on){ O.on=1; if(O.modo==='dorme') O.modo='seguir'; q39=null; if(av){ v27Fx({k:'col',x:av.x+1.2,y:av.y-.5,t:0,dur:1.4}); sfx('lvl',av.x,av.y); } } }
+/* inimigos: feras, bandidos e quem atacou o semideus há pouco */
+function inimigo39(x,y,R,av){
+ let best=null, bd=R;
+ for(const o of state.ents){ if(o.hp<=0||o.inside!=null||o===av||isAv(o)||o.id===state.playerId) continue;
+  const d=Math.hypot(o.x-x,o.y-y); if(d>=bd) continue;
+  const fera=o.sp==='wolf'||o.sp==='bear'||o.sp==='lion', mau=o.sp==='human'&&(o.bandit||(av&&av.lastFoe===o.id&&state.time-(av.lastFoeT||0)<20));
+  if(fera||mau){ best=o; bd=d; } }
+ return best; }
+/* recurso mais perto do semideus: árvore (madeira) ou rocha (pedra) */
+function recurso39(av,k){
+ const R=Q39.BUSCA_R, x0=Math.floor(av.x), y0=Math.floor(av.y); let best=null, bd=1e9;
+ for(let y=Math.max(0,y0-R);y<=Math.min(state.h-1,y0+R);y++) for(let x=Math.max(0,x0-R);x<=Math.min(state.w-1,x0+R);x++){
+  const c=cell(x,y); if(!c||c.build) continue; const ok=k==='wood'?!!c.tree:!!c.ore; if(!ok) continue;
+  const d=Math.hypot(x-x0,y-y0); if(d<bd){ bd=d; best=[x,y]; } }
+ return best; }
+function qOrdem39(modo,extra){
+ const O=qOrd39(), av=avEnt(); qChama39();
+ if(modo==='dorme'){ O.on=0; O.modo='dorme'; q39=null; return 'Vou descansar nas nuvens. É só me chamar de novo.'; }
+ if(modo==='voltar'){ O.modo='seguir'; if(q39){ q39.fase=null; q39.carga=0; } return 'Voltando para perto de você.'; }
+ if(modo==='vigiar'){ if(!av) return 'Preciso saber onde você está.'; O.modo='vigiar'; O.vx=av.x; O.vy=av.y-1.2; return 'Vou vigiar este lugar. Se aparecer perigo, eu aviso e atiro.'; }
+ if(modo==='buscar'){ const k=extra==='stone'?'stone':'wood'; if(av&&!recurso39(av,k)) return k==='wood'?'Não vejo nenhuma árvore perto daqui.':'Não vejo nenhuma rocha perto daqui.';
+  O.modo='buscar'; O.busca=k; O.viagens=0; if(q39){ q39.fase=null; q39.carga=0; } return k==='wood'?'Vou buscar madeira para você.':'Vou buscar pedra para você.'; }
+ O.modo=modo; return modo==='proteger'?'Arco pronto. Ninguém encosta em você.':'Estou logo atrás de você.';
+}
+function qTick39(dt){
+ const av=qAtivo39(); if(!av){ return; }
+ const O=qOrd39(), f=av.face||1;
+ if(!q39) q39={x:av.x-f*1.3,y:av.y-6,anim:0,cd:0,fase:null,carga:0,alvo:null,vira:f,tiro:0,avisa:0};
+ const Q=q39; let tx=av.x-f*1.3, ty=av.y-1.7;
+ if(O.modo==='vigiar'){ tx=O.vx; ty=O.vy; }
+ if(O.modo==='buscar'){
+  if(!Q.fase){ const r=recurso39(av,O.busca); if(!r){ O.modo='seguir'; diz39(O.busca==='wood'?'Acabaram as árvores por perto.':'Acabaram as rochas por perto.'); } else { Q.alvo=r; Q.fase='ida'; } }
+  if(Q.fase==='ida'||Q.fase==='colhe'){ tx=Q.alvo[0]+.5; ty=Q.alvo[1]-.6;
+   const c=cell(Q.alvo[0],Q.alvo[1]); if(!c||(O.busca==='wood'?!c.tree:!c.ore)){ Q.fase=null; }
+   else if(Math.hypot(Q.x-tx,Q.y-ty)<.35){ if(Q.fase==='ida'){ Q.fase='colhe'; Q.colhe=0; } Q.colhe+=dt; if(Math.random()<dt*2) addFloat(Q.alvo[0]+.5,Q.alvo[1]-.8,O.busca==='wood'?'🪓':'⛏️');
+    if(Q.colhe>=Q39.COLHE){ Q.carga=Q39.CARGA; Q.fase='volta'; } } }
+  if(Q.fase==='volta'){ tx=av.x-f*.8; ty=av.y-1.2;
+   if(Math.hypot(Q.x-tx,Q.y-ty)<.5){ const k=O.busca; av.carry=av.carry||{}; av.carry[k]=(av.carry[k]||0)+Q.carga; addFloat(av.x,av.y-1.4,`+${Q.carga}${k==='wood'?'🪵':'🪨'}`); sfx('coin',av.x,av.y);
+    Q.carga=0; Q.fase=null; O.viagens=(O.viagens||0)+1; if(O.viagens>=Q39.VIAGENS){ O.modo='seguir'; diz39(`Trouxe ${Q39.CARGA*Q39.VIAGENS} de ${k==='wood'?'madeira':'pedra'}. Mais alguma coisa?`); } } } }
+ // voo: chega rápido quando está longe e plana devagar quando está perto
+ const dx=tx-Q.x, dy=ty-Q.y, d=Math.hypot(dx,dy);
+ if(d>40){ Q.x=tx; Q.y=ty-3; }
+ else if(d>.02){ const v=Math.min(d,(Q39.VEL+d*1.2)*dt); Q.x+=dx/d*v; Q.y+=dy/d*v; if(Math.abs(dx)>.15) Q.vira=dx>0?1:-1; }
+ if(d<.6&&O.modo!=='buscar') Q.vira=O.modo==='vigiar'?Q.vira:f;
+ // arco: protege o semideus ou o ponto de vigia
+ Q.cd-=dt;
+ if(O.modo==='proteger'||O.modo==='vigiar'){
+  const cx=O.modo==='vigiar'?O.vx:av.x, cy=O.modo==='vigiar'?O.vy:av.y, R=O.modo==='vigiar'?Q39.VIGIA_R:Q39.PROT_R;
+  const e=inimigo39(cx,cy,R,av);
+  if(e&&O.modo==='vigiar'&&state.time>(Q.avisa||0)){ Q.avisa=state.time+DAY*.15; toast(`👼 Querubim: perigo no ponto de vigia (${e.name||SPECIES[e.sp].name})!`); }
+  if(e&&Q.cd<=0&&Math.hypot(e.x-Q.x,e.y-Q.y)<R+3){ Q.cd=Q39.TIRO_CD; Q.tiro=performance.now(); Q.vira=e.x>Q.x?1:-1;
+   fl39.push({x0:Q.x,y0:Q.y,x1:e.x,y1:e.y-.5,t0:performance.now()}); if(fl39.length>12) fl39.shift();
+   if(hurt(e,Q39.DANO,null)){ killEnt(e,'querubim'); addFloat(e.x,e.y-1,'✨'); if(e.sp==='human') pushLog(`👼 O querubim de ${av.name} derrubou ${e.name} com uma flecha de luz`,false,{x:e.x,y:e.y}); } } }
+}
+function diz39(t){ try{ diz38('anjo',t); }catch(err){} toast('👼 '+t); }
+/* pixel art do querubim: 16 x 13 pixels, asas em dois quadros */
+const QPX39 = [
+ '......YYYY......',
+ '.....Y....Y.....',
+ '......YYYY......',
+ '......GGGG......',
+ '.....GGGGGG.....',
+ '.....GSSSSG.....',
+ '.....SESSES.....',
+ '.....SCSSCS.....',
+ '......SSSS......',
+ '.....PPPPPP.....',
+ '....SPPPPPPS....',
+ '.....DDDDDD.....',
+ '.....SS..SS.....'];
+const QASA39 = [ // asa esquerda (a direita é o espelho): [linha, texto de 5 colunas]
+ [[2,'WW...'],[3,'WWW..'],[4,'WWWW.'],[5,'.WWWW'],[6,'..WWW'],[7,'...WW']],
+ [[6,'...WW'],[7,'.WWWW'],[8,'WWWWW'],[9,'WWWW.'],[10,'.WW..']] ];
+const QCOR39 = {Y:'#ffe066',G:'#f2c14e',S:'#ffd9b3',E:'#3a2a1a',C:'#ff9d9d',P:'#ff8fb1',D:'#ffffff',W:'#ffffff',w:'#d6e2f2',B:'#8b5a2b',L:'#9a6b3a',R:'#9a9a9a'};
+function qDraw39(now){
+ const av=qAtivo39(); if(!av||!q39) return;
+ const u=cellPx, Q=q39, bob=Math.sin(now/300)*.15, X=(Q.x-viewL)*u, Y=(Q.y+bob-viewT)*u;
+ if(X<-u*4||Y<-u*4||X>canvasW+u*4||Y>canvasH+u*4) return;
+ const s=Math.max(1,Math.round(u*.095)), W=16*s, H=13*s, x0=Math.round(X-W/2), y0=Math.round(Y-H/2), fl=Math.floor(now/140)%2, vira=Q.vira||1;
+ // sombra no chão e brilho
+ ctx.fillStyle='rgba(0,0,0,.18)'; ctx.beginPath(); ctx.ellipse(X,Y+u*1.5,u*.45,u*.14,0,0,7); ctx.fill();
+ const gr=ctx.createRadialGradient(X,Y,0,X,Y,u*1.3); gr.addColorStop(0,'rgba(255,240,180,.45)'); gr.addColorStop(1,'rgba(255,240,180,0)'); ctx.fillStyle=gr; ctx.fillRect(X-u*1.3,Y-u*1.3,u*2.6,u*2.6);
+ const px=(c,r,col)=>{ const cc=vira>0?c:15-c; ctx.fillStyle=col; ctx.fillRect(x0+cc*s,y0+r*s,s,s); };
+ for(const [r,t] of QASA39[fl]) for(let i=0;i<5;i++) if(t[i]==='W'){ px(i,r,i===0||t[i-1]!=='W'?QCOR39.w:QCOR39.W); px(15-i,r,i===0||t[i-1]!=='W'?QCOR39.w:QCOR39.W); }
+ for(let r=0;r<QPX39.length;r++){ const t=QPX39[r]; for(let c=0;c<16;c++){ const k=t[c]; if(k!=='.') px(c,r,QCOR39[k]); } }
+ const O=qOrd39();
+ // arco na mão quando protege ou vigia (corda puxada logo depois do tiro)
+ if(O.modo==='proteger'||O.modo==='vigiar'){ const puxa=now-(Q.tiro||0)<180;
+  for(const [c,r] of [[12,6],[13,7],[13,8],[13,9],[12,10]]) px(c,r,QCOR39.B);
+  for(let r=7;r<=9;r++) px(puxa?11:12,r,'#f4f4f4'); }
+ // carga: tora ou pedra pendurada
+ if(Q.carga){ const k=O.busca; for(let c=5;c<=10;c++) px(c,13,k==='wood'?QCOR39.L:QCOR39.R); for(let c=6;c<=9;c++) px(c,14,k==='wood'?'#7a5028':'#7d7d7d'); }
+ // flechas de luz
+ for(let i=fl39.length-1;i>=0;i--){ const a=fl39[i], t=(now-a.t0)/220; if(t>1.6){ fl39.splice(i,1); continue; } const k=Math.min(1,t);
+  const ax=(a.x0+(a.x1-a.x0)*k-viewL)*u, ay=(a.y0+(a.y1-a.y0)*k-viewT)*u, bx=(a.x0+(a.x1-a.x0)*Math.max(0,k-.25)-viewL)*u, by=(a.y0+(a.y1-a.y0)*Math.max(0,k-.25)-viewT)*u;
+  ctx.strokeStyle=`rgba(255,230,120,${t>1?1.6-t:1})`; ctx.lineWidth=Math.max(1.5,u*.12); ctx.beginPath(); ctx.moveTo(bx,by); ctx.lineTo(ax,ay); ctx.stroke();
+  if(t>=1){ ctx.fillStyle=`rgba(255,250,200,${(1.6-t)/.6})`; ctx.beginPath(); ctx.arc(ax,ay,u*.35*(t-.6),0,7); ctx.fill(); } }
+ if(O.modo==='vigiar'&&u>=6){ const vx=(O.vx-viewL)*u, vy=(O.vy+1.2-viewT)*u; ctx.strokeStyle='rgba(255,230,120,.35)'; ctx.setLineDash([u*.4,u*.3]); ctx.lineWidth=1; ctx.beginPath(); ctx.arc(vx,vy,Q39.VIGIA_R*u,0,7); ctx.stroke(); ctx.setLineDash([]); }
+}
+anjoDraw=function(now){ qDraw39(now); };
+/* painel: aba nova 👼 Querubim e o 😇 vira 👼 */
+{ const b=$('a38Btn'); if(b){ b.innerHTML='👼<small>querubim</small>'; b.title='Chamar o querubim'; } }
+{ const _ab=anjoAbre; anjoAbre=function(){ const r=_ab.apply(this,arguments); try{ if(anjoEl&&!anjoEl.hidden) qChama39(); }catch(err){ v31Err(err); } return r; }; }
+{ const _r=anjoRender; anjoRender=function(){ _r(); if(!anjoEl) return; try{
+  anjoEl.innerHTML=anjoEl.innerHTML.split('😇').join('👼');
+  const tabs=anjoEl.querySelector('.tabs'); if(tabs){ const b=document.createElement('button'); b.dataset.a='tab'; b.dataset.v='quer'; b.textContent='👼 Querubim'; if(anjoTab==='quer') b.className='on'; tabs.insertBefore(b,tabs.firstChild); }
+  if(anjoTab==='quer'){ const O=qOrd39(), B=(a,t,v,on)=>`<button data-a="${a}" data-v="${v}" class="${on?'on':''}">${t}</button>`;
+   let H=`<div class="card"><b>Ordens para o querubim</b><p>Agora: <b>${O.on?qNome39[O.modo]||O.modo:'dispensado'}${O.on&&O.modo==='buscar'?(O.busca==='wood'?' madeira':' pedra'):''}</b>. Estas ordens não gastam Fé.</p>`;
+   H+=`<div class="btns">${B('q39','🕊️ Seguir<small>fica atrás de você</small>','seguir',O.on&&O.modo==='seguir')}${B('q39','🏹 Proteger<small>atira em feras e bandidos</small>','proteger',O.on&&O.modo==='proteger')}${B('q39','👁️ Vigiar aqui<small>guarda este lugar</small>','vigiar',O.on&&O.modo==='vigiar')}${B('q39','🪵 Buscar madeira<small>traz 12 🪵</small>','buscar:wood',O.on&&O.modo==='buscar'&&O.busca==='wood')}${B('q39','🪨 Buscar pedra<small>traz 12 🪨</small>','buscar:stone',O.on&&O.modo==='buscar'&&O.busca==='stone')}${B('q39','↩️ Voltar<small>larga tudo e volta</small>','voltar',false)}${B('q39',O.on?'💤 Dispensar<small>sobe para as nuvens</small>':'🔔 Chamar<small>desce ao seu lado</small>',O.on?'dorme':'chama',false)}</div>`;
+   H+=`<div class="small" style="margin-top:6px">Também dá para escrever em 💬 Ordens: “me segue”, “me protege”, “vigia aqui”, “busca madeira”, “busca pedra”, “volta”, “vai descansar”.</div></div>`;
+   anjoEl.insertAdjacentHTML('beforeend',H); }
+  if(anjoTab==='ajuda') anjoEl.insertAdjacentHTML('beforeend',`<div class="card"><b>👼 O querubim</b><p>Ele voa atrás de você enquanto você está no modo semideus. Na aba 👼 Querubim você manda ele seguir, proteger (atira flechas de luz em feras, bandidos e em quem te atacou), vigiar um lugar, buscar madeira ou pedra, voltar ou descansar.</p><b>🚦 Trânsito</b><p>Carroças (e carros, quando a cidade entra na indústria) andam pelas ruas, estacionam no quintal das casas e podem atropelar quem estiver no caminho. Dá para desligar em ⚙️.</p></div>`);
+  const ch=anjoEl.querySelector('#a38chat'); if(ch) ch.scrollTop=ch.scrollHeight;
+ }catch(err){ v31Err(err); } }; }
+{ const _c=anjoClick; anjoClick=function(b){ const a=b.dataset&&b.dataset.a, v=b.dataset&&b.dataset.v;
+  if(a==='q39'){ const [m,x]=String(v).split(':'); const msg=m==='chama'?(qChama39(),qOrd39().modo='seguir','Desci! Estou ao seu lado.'):qOrdem39(m,x); anjoFala=msg; diz38('anjo',msg); anjoRender(); return; }
+  return _c.apply(this,arguments); }; }
+/* as ordens pessoais também funcionam escritas */
+{ const _o=anjoOrdem; anjoOrdem=function(txt){ const t=n38(txt);
+  const M=[[/\b(me segue|me siga|segue me|siga me|vem comigo|venha comigo)\b/,'seguir'],[/\b(me protege|me proteja|protege me|proteja me|me defende|me defenda|guarda costas)\b/,'proteger'],[/\b(vigia|vigie|vigiar|guarda este lugar|toma conta daqui)\b/,'vigiar'],
+   [/\b(busca|busque|buscar|traz|traga|pega|pegue)\b.*\b(madeira|lenha|tora)/,'buscar:wood'],[/\b(busca|busque|buscar|traz|traga|pega|pegue)\b.*\b(pedra|rocha)/,'buscar:stone'],[/^(volta|volte|vem ca|venha ca|volta aqui)$/,'voltar'],[/\b(vai descansar|pode ir|dispensado|va embora|vai embora|some)\b/,'dorme']];
+  for(const [re,m] of M) if(re.test(t)){ diz38('voce',txt); const [a,x]=m.split(':'); const r=qOrdem39(a,x); diz38('anjo',r); anjoFala=r; return; }
+  return _o.apply(this,arguments); }; }
+
+/* ---------------------------------------------------------------------
+   TRÂNSITO: carroças e carros nas ruas das cidades (não vai no save)
+   --------------------------------------------------------------------- */
+const tr39=[]; let tr39T=0, tr39Col=0;
+const D4_39=[[1,0],[0,1],[-1,0],[0,-1]];
+const areaR39 = v => { try{ return muroR36(v)+4; }catch(err){ return (v.R||8)+8; } };
+function rua39(x,y){ if(!inside(x,y)) return false; const c=cell(x,y);
+ if(c.build){ const B=BUILDS[c.build]; return !!(B&&(B.bridge||(B.gate&&c.build!=='door'))); }
+ if(c.water) return false; return c.terrain==='trampled'||c.terrain==='paved'; }
+const casaB39 = c => !!(c&&c.build&&BUILDS[c.build]&&BUILDS[c.build].size);
+function vizRua39(x,y){ let n=0; for(const [dx,dy] of D4_39) if(rua39(x+dx,y+dy)) n++; return n; }
+function nasce39(v){
+ const R=areaR39(v);
+ for(let t=0;t<40;t++){ const a=Math.random()*6.283, r=Math.random()*R, x=Math.floor(v.cx+Math.cos(a)*r), y=Math.floor(v.cy+Math.sin(a)*r);
+  if(!rua39(x,y)||cell(x,y).build||vizRua39(x,y)<2) continue;
+  const op=D4_39.filter(([dx,dy])=>rua39(x+dx,y+dy)); const [dx,dy]=pick(op);
+  const carro=industrial36(v)&&Math.random()<.65;
+  tr39.push({vid:v.id,cx:x,cy:y,nx:x+dx,ny:y+dy,f:0,dx,dy,tipo:carro?'carro':'carroca',vmax:(carro?TR39.CARRO:TR39.CARROCA)*rnd(.8,1.15),vel:0,
+   vida:TR39.VIDA*rnd(.6,1.2),park:0,parkXY:null,parkOk:state.time+DAY*.05,mod:(Math.random()*3)|0,cor:(Math.random()*5)|0,carga:pick(['food','wood','stone','food']),olha:new Map(),freia:0,buz:0});
+  return true; }
+ return false; }
+function proximo39(t,v){
+ const R=areaR39(v)+6, op=D4_39.filter(([dx,dy])=>!(dx===-t.dx&&dy===-t.dy)&&rua39(t.cx+dx,t.cy+dy)&&Math.hypot(t.cx+dx-v.cx,t.cy+dy-v.cy)<R);
+ if(!op.length) return rua39(t.cx-t.dx,t.cy-t.dy)?[-t.dx,-t.dy]:null;
+ const reto=op.find(([dx,dy])=>dx===t.dx&&dy===t.dy); return reto&&Math.random()<.65?reto:pick(op); }
+/* quintal: chão livre colado numa casa, ao lado da rua */
+function quintal39(x,y){
+ for(const [dx,dy] of D4_39){ const qx=x+dx, qy=y+dy; if(!inside(qx,qy)) continue; const c=cell(qx,qy); if(c.build||c.water||c.ore||rua39(qx,qy)||c.terrain==='hillHigh'||c.terrain==='hillMid') continue;
+  if(tr39.some(o=>o.parkXY&&o.parkXY[0]===qx&&o.parkXY[1]===qy)) continue;
+  for(const [ex,ey] of D8B) if(casaB39(cellAt(qx+ex,qy+ey))) return [qx,qy]; }
+ return null; }
+const posT39 = t => { if(t.parkXY) return [t.parkXY[0]+.5,t.parkXY[1]+.5]; const x=t.cx+.5+(t.nx-t.cx)*t.f, y=t.cy+.5+(t.ny-t.cy)*t.f; return [x-t.dy*.22,y+t.dx*.22]; }; // mão direita
+const angT39 = t => Math.atan2(t.dy,t.dx);
+function trTick39(dt){
+ if(!on39('transito')){ tr39.length=0; return; }
+ tr39T+=dt; if(tr39T>1.5){ tr39T=0;
+  for(const v of state.villages){ if(v.stage==='fire') continue; const n=tr39.filter(t=>t.vid===v.id).length, alvo=Math.min(TR39.POR,Math.floor((members(v).length||0)/6));
+   if(n<alvo&&tr39.length<TR39.MAX&&Math.random()<.5) nasce39(v); } }
+ // quem está na rua (para frear e para atropelar)
+ tr39Col+=dt; let mapa=null;
+ if(tr39Col>=TR39.OLHA&&tr39.length){ tr39Col=0; mapa=new Map(); const W=state.w;
+  for(const o of state.ents){ if(o.hp<=0||o.inside!=null||isDragon(o)||(o.z||0)>.3||(o.alt||0)>.1) continue; try{ if(dentro36(o)) continue; }catch(err){}
+   const k=Math.floor(o.y)*W+Math.floor(o.x); let L=mapa.get(k); if(!L) mapa.set(k,L=[]); L.push(o); } }
+ for(let i=tr39.length-1;i>=0;i--){ const t=tr39[i], v=villageById(t.vid);
+  t.vida-=dt; if(!v||t.vida<=0&&!t.parkXY){ tr39.splice(i,1); continue; }
+  if(t.park>0){ t.park-=dt; t.vel=0; if(t.park<=0){ t.park=0; t.parkXY=null; t.parkOk=state.time+DAY*.12; } continue; }
+  // freia se tiver gente na frente (decide uma vez por pessoa)
+  let quer=t.vmax;
+  if(mapa){ const W=state.w, [x,y]=posT39(t); t.freia=0;
+   for(const k of [t.cy*W+t.cx,t.ny*W+t.nx,(t.ny+t.dy)*W+t.nx+t.dx]){ const L=mapa.get(k); if(!L) continue;
+    for(const o of L){ const ox=o.x-x, oy=o.y-y, d=Math.hypot(ox,oy), frente=ox*t.dx+oy*t.dy;
+     if(frente>-.1&&d<2.2){ let s=t.olha.get(o.id); if(s==null){ s=!on39('atropelar')||Math.random()<TR39.FREIA||(v.atropDia39||0)>=TR39.DIA_MAX||o.id===state.playerId&&Math.random()<.5; t.olha.set(o.id,s); }
+      if(!s&&d<.5&&t.vel>.45){ atropela39(t,o,v); continue; } if(s){ t.freia=1; if(state.time>t.buz&&o.sp==='human'){ t.buz=state.time+6; addFloat(x,y-.9,t.tipo==='carro'?'📯':'🔔'); } } } } } }
+  if(t.freia) quer=0;
+  t.vel+=clamp(quer-t.vel,-dt*3.5,dt*(t.tipo==='carro'?1.4:.8));
+  t.f+=t.vel*dt;
+  if(t.f>=1){ t.cx=t.nx; t.cy=t.ny; t.f=0; if(t.olha.size>40) t.olha.clear();
+   // estaciona no quintal de uma casa de vez em quando
+   if(state.time>t.parkOk&&Math.random()<.12){ const q=quintal39(t.cx,t.cy); if(q){ t.parkXY=q; t.park=rnd(TR39.PARA[0],TR39.PARA[1]); t.vel=0; continue; } }
+   const p=proximo39(t,v); if(!p){ tr39.splice(i,1); continue; } t.dx=p[0]; t.dy=p[1]; t.nx=t.cx+p[0]; t.ny=t.cy+p[1]; }
+ }
+}
+function atropela39(t,o,v){
+ const spd=t.vel, eu=o.id===state.playerId||isAv(o), [x,y]=posT39(t);
+ addFloat(o.x,o.y-1,'💥'); sfx('hit',o.x,o.y);
+ const k=t.tipo==='carro'?9:6, dmg=spd*k;
+ // empurra para fora da rua
+ const nx=o.x+t.dx*.7-t.dy*.5, ny=o.y+t.dy*.7+t.dx*.5; if(passable(o,nx,ny)){ o.x=nx; o.y=ny; }
+ o.path=null; o.tx=null;
+ if(eu){ o.hp=Math.max(1,o.hp-dmg*.6); o.hurt=.3; flashHurt(); toast(`💥 Uma ${t.tipo==='carro'?'carro':'carroça'} te atropelou!`.replace('Uma carro','Um carro')); }
+ else if(o.sp==='human'){
+  const morre=Math.random()<clamp((spd-1)/4,.03,.45);
+  v.atrop39=(v.atrop39||0)+1; v.atropDia39=(v.atropDia39||0)+1;
+  if(morre){ killEnt(o,'atropelado'); pushLog(`🚑 ${o.name} morreu atropelad${o.sex==='F'?'a':'o'} por ${t.tipo==='carro'?'um carro':'uma carroça'} em ${v.name}`,false,{x:o.x,y:o.y}); }
+  else { if(hurt(o,dmg,null)) killEnt(o,'atropelado'); else if(Math.random()<.4) pushLog(`🚑 ${o.name} foi atropelad${o.sex==='F'?'a':'o'} em ${v.name}, mas sobreviveu`,false,{x:o.x,y:o.y}); } }
+ else if(hurt(o,dmg*1.5,null)) killEnt(o,'atropelado');
+ t.vel*=.35; t.olha.set(o.id,true);
+}
+/* desenho: carroça puxada por boi ou carro pequeno, do tamanho da rua */
+function trDraw39(t,now){
+ const [x,y]=posT39(t), X=(x-viewL)*cellPx, Y=(y-viewT)*cellPx, a=t.parkXY?(t.dx?0:Math.PI/2):angT39(t), sc=t.tipo==='carro'?.9:.95;
+ ctx.save(); ctx.translate(X,Y); ctx.scale(sc,sc);
+ if(t.tipo==='carro') carro36(ctx,0,0,a,cellPx,t.mod,t.cor,t.vel);
+ else carroca36Draw(ctx,0,0,a,cellPx,t.carga,true,false,t.vel>.05);
+ ctx.restore(); }
+{ const _vi=v27Items; v27Items=function(items,cx0,cx1,cy0,cy1,now){ _vi(items,cx0,cx1,cy0,cy1,now);
+  try{ if(on39('transito')) for(const t of tr39){ const [x,y]=posT39(t); if(x<cx0-2||x>cx1+2||y<cy0-2||y>cy1+3) continue; items.push({y:y+.25,k:9,draw:()=>trDraw39(t,now)}); } }catch(err){ v31Err(err); } }; }
+{ const _vl=v27Lights; v27Lights=function(dk,now){ _vl(dk,now); try{ if(dk<.05||!on39('transito')) return; const u=cellPx;
+  for(const t of tr39){ if(t.tipo!=='carro'||t.park>0) continue; const [x,y]=posT39(t), sx=(x+t.dx*.45-viewL)*u, sy=(y+t.dy*.45-viewT)*u; if(sx<-u*2||sy<-u*2||sx>canvasW+u*2||sy>canvasH+u*2) continue;
+   const g=ctx.createRadialGradient(sx,sy,0,sx,sy,u*.9); g.addColorStop(0,`rgba(255,240,190,${.45*dk})`); g.addColorStop(1,'rgba(255,240,190,0)'); ctx.fillStyle=g; ctx.fillRect(sx-u,sy-u,u*2,u*2); } }catch(err){} }; }
+
+/* ---------------------------------------------------------------------
+   RUAS: becos sem saída ligados à rede (uma vez por dia em cada cidade)
+   --------------------------------------------------------------------- */
+function becos39(v){
+ const R=areaR39(v)-2, W=state.w, x0=Math.max(1,Math.floor(v.cx-R)), x1=Math.min(state.w-2,Math.ceil(v.cx+R)), y0=Math.max(1,Math.floor(v.cy-R)), y1=Math.min(state.h-2,Math.ceil(v.cy+R));
+ const dentro=(x,y)=>x>=x0&&x<=x1&&y>=y0&&y<=y1&&Math.hypot(x-v.cx,y-v.cy)<=R;
+ const pontas=[]; for(let y=y0;y<=y1;y++) for(let x=x0;x<=x1;x++) if(dentro(x,y)&&rua39(x,y)&&!cell(x,y).build&&vizRua39(x,y)===1) pontas.push([x,y]);
+ let feitas=0;
+ for(const [px,py] of pontas.sort(()=>Math.random()-.5)){ if(feitas>=3) break;
+  // ruas que já se alcançam pela rede em até 7 passos não contam
+  const perto=new Set([py*W+px]), q=[[px,py,0]]; for(let h=0;h<q.length;h++){ const [x,y,d]=q[h]; if(d>=7) continue; for(const [dx,dy] of D4_39){ const nx=x+dx, ny=y+dy, k=ny*W+nx; if(!perto.has(k)&&rua39(nx,ny)){ perto.add(k); q.push([nx,ny,d+1]); } } }
+  // abre caminho por chão livre até outra rua (no máximo 7 quadrados)
+  const prev=new Map([[py*W+px,-1]]), Q=[[px,py,0]]; let achou=-1;
+  for(let h=0;h<Q.length&&achou<0;h++){ const [x,y,d]=Q[h]; if(d>=8) continue;
+   for(const [dx,dy] of D4_39){ const nx=x+dx, ny=y+dy, k=ny*W+nx; if(prev.has(k)||!dentro(nx,ny)) continue;
+    if(rua39(nx,ny)){ if(!perto.has(k)&&d>=1){ prev.set(k,y*W+x); achou=k; break; } continue; }
+    const c=cell(nx,ny); if(c.build||c.water||c.ore||c.owner&&c.owner!==v.id||c.terrain==='hillHigh'||c.terrain==='hillMid'||(c.reg&&c.reg===T36.RES)) continue;
+    prev.set(k,y*W+x); Q.push([nx,ny,d+1]); } }
+  if(achou<0) continue;
+  for(let k=prev.get(achou);k>=0&&k!==py*W+px;k=prev.get(k)){ const c=state.cells[k]; if(c.terrain!=='paved'){ c.terrain='trampled'; c.grass=0; c.tree=null; markDirty(k%W,(k/W)|0); } }
+  feitas++; }
+ if(feitas&&Math.random()<.3) pushLog(`🛣️ ${v.name} ligou ${feitas} rua${feitas>1?'s':''} sem saída à rede`,false,{x:v.cx,y:v.cy});
+ return feitas; }
+{ const _vt=villageTick; villageTick=function(step){ _vt(step);
+  try{ const C=cal(), V=v27(); if(V.dia39!==C.di){ V.dia39=C.di; for(const v of state.villages) v.atropDia39=0; if(on39('ruas39')) for(const v of state.villages.slice()) if(v.stage!=='fire') try{ becos39(v); }catch(err){ v31Err(err); } } }catch(err){ v31Err(err); } }; }
+
+/* ---------------------------------------------------------------------
+   MAIS CASAS: teto padrão "Grandes" e sobrado mais rápido
+   VIAS EM PIXELS: sem média móvel, a linha passa pelo meio de cada quadrado
+   --------------------------------------------------------------------- */
+lim37=function(){ let k=null; try{ k=localStorage.getItem('mv37lim'); }catch(e){} return k&&C37.LIM[k]?k:'grande'; };
+C37.OBRA=.35;
+try{ limites37(); }catch(err){}
+{ const _s=suave36; suave36=function(cells,jan){ if(!on39('vias45')) return _s(cells,jan); return cells.map(k=>[k%state.w+.5,((k/state.w)|0)+.5]); }; }
+{ const _set=CTRL43.set; CTRL43.set=function(k,b){ const r=_set.apply(this,arguments); if(k==='vias45') try{ const T=t36(); T.ver++; for(const o of T.trens.concat(T.autos)){ delete o.P; delete o.L; } }catch(err){} if(k==='transito'&&!b) tr39.length=0; return r; }; }
+
+/* ligações: anda a cada passo, zera ao carregar, ficha da vila */
+{ const _uw=updateWorld; updateWorld=function(dt){ _uw(dt);
+  try{ let r=Math.min(dt,4); while(r>0){ const s=Math.min(.25,r); r-=s; qTick39(s); trTick39(s); } }catch(err){ v31Err(err); } }; }
+{ const _ld=load; load=function(){ tr39.length=0; q39=null; fl39.length=0; const r=_ld.apply(this,arguments); try{ limites37(); }catch(err){} return r; }; }
+{ const _gw=generateWorld; generateWorld=function(){ tr39.length=0; q39=null; return _gw.apply(this,arguments); }; }
+{ const _vi=villageInfo; villageInfo=function(){ _vi(); try{ const v=villageById(state.infoRef); if(!v) return; const n=tr39.filter(t=>t.vid===v.id), c=n.filter(t=>t.tipo==='carro').length;
+  if(n.length||v.atrop39) $('infoLines').insertAdjacentHTML('beforeend',`<div><b>🚦 Trânsito:</b> ${n.length-c} carroça${n.length-c===1?'':'s'}${c?` e ${c} carro${c>1?'s':''}`:''} nas ruas${v.atrop39?` · 🚑 ${v.atrop39} atropelamento${v.atrop39>1?'s':''}`:''}</div>`); }catch(err){} }; }
+window.MVq39={anjoOrdem:t=>anjoOrdem(t),get q(){return q39;},qOrd39,qOrdem39,qTick39,tr39,trTick39,nasce39,becos39,rua39,atropela39,recurso39,inimigo39,get cellPx(){return cellPx;}};
 window.MVdbg={farmGrow,farmSz,farmSendOrder,farmExpTick,farmReorgCheck,miniPenPlace,buildMiniPen,mpenOf,farmHerd,farmPastors,farmPenOf,farmInPen,openFarm,farmCommand,bandCommand,guildCommand,dragonCommand,v17Tick,miniPenDaily,farmHireOne,farmOffer,farmAdults,cityGateSpot,landPrice,farmFence,farmChest,possess,clearRingFences,campSpot,villageAbandonTick,homeOf,annex,farmRect,farmPlan,farmBosses,farmNextBuild,farmRoles,hireGuards,guildTick,banditTick,farmWorldTick,academyTick,academySpot,studyThink,dreamOf,foundGuild,guildSpot,farmDoUp,cartThink,troughOf,penBuilt,penCap,farmMigrate,get farmEpoch(){return farmEpoch;},bumpFarm:()=>farmEpoch++,openVillage,openHouse,kingCommand,homeSpend,farmAbsorb,farmGrab,farmBuy,farmAnimals,farmStock,comfortOf,roomSize,animalPlayerAct,jobWant,hasPowers,castSpin,castBreath,powerHostile,highwayTick,hwRoute,get jutsus(){return jutsus;},farmRect,farmFence,farmShakedown,mercTick,hireMercFor,mercPrice,priceOf,addXP,load,save,isWildDragon,wildInit,dragonRevenge,dragonHuntTick,markAggressor,decideWar,borderDispute,gateLeft,gateMax,hitGate,chiefCape,raidOf,tameWildDragon,get WANTED(){return WANTED;},paint,doAction,computeTarget,killEnt,hurt,rebuildGrid,exitPlay,DRAGON,fireAt,hatchEgg,dragonEggEvents,groundOK,dStage,dAdult,get fireballs(){return fireballs;},get blasts(){return blasts;},onTap,stats:dbgStats,escapeTrap,setTask,clearBuild,villageById,npcState,patrolPoints,gateInside,hermitSpot,launchRaid,expandVillage,entSprite,ART,SPECIES,tapWorld:(x,y)=>onTap({x:(x-viewL)*cellPx,y:(y-viewT)*cellPx}),toScreen:(x,y)=>({x:(x-viewL)*cellPx,y:(y-viewT)*cellPx}),updateContext,feedPet,spawn,deathLog,petsOf,tameAnimal,villageTick,setBuild,enterHouse,exitHouse,nearHouseDoor,player,possess,findPath,passable,get inLay(){return inLay;}};
 selectTool('terrain');
 renderSaves();
