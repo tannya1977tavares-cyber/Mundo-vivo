@@ -379,7 +379,8 @@ const BUILDS = {
  coop:{e:'🐔',name:'Galinheiro',cost:{wood:6},solid:true,noMenu:true},
  silo:{e:'🌽',name:'Silo',cost:{wood:10},solid:true,noMenu:true},
  academy:{e:'🎓',name:'Academia',cost:{wood:40,stone:30},solid:true,size:3,noMenu:true},
- alchemy:{e:'🧪',name:'Loja de poções',cost:{},solid:true,noMenu:true}
+ alchemy:{e:'🧪',name:'Loja de poções',cost:{},solid:true,noMenu:true},
+ hipodromo:{e:'🏇',name:'Hipódromo',cost:{},noMenu:true} // v40 fase 9: tipo novo sempre no fim (o save guarda o tipo pela posição)
 };
 /* Móveis de dentro de casa */
 const ITEMS = {
@@ -24716,6 +24717,394 @@ function e40Tick(){
 
 Object.assign(window.MV40, {ETNIAS, NIVEIS, E40, PRECO_TIPO, etDe, P40, bairros40, nivelTick, nivelPorDinheiro, etDoBairro, moradores40, povosDoMundo, pairUp:(a,b)=>pairUp(a,b)});
 
+/* =====================================================================
+   v40 · FASE 6 · RUAS SÓ DENTRO DAS CIDADES (decisão do Bruno)
+   Dentro da cidade, o chão público que não é rua (grama entre as ruas) fica caro
+   para andar: o caminho prefere as ruas. Lotes, roças, casas, campo, mina e floresta
+   continuam livres para o trabalho.
+   ===================================================================== */
+const RUA40 = {CUSTO:20, REFAZ:2};          // custo extra fora da rua dentro da cidade · refaz o mapa a cada 2 s de jogo
+let rua40=null, rua40T=0;
+const ehRua40 = c => c.terrain==='trampled'||c.terrain==='paved'||c.build==='floor'||c.build==='bridge'||c.build==='gate'||c.build==='door';
+function ruaMask40(){
+ const N=state.w*state.h; if(!rua40||rua40.length!==N) rua40=new Uint8Array(N); else rua40.fill(0);
+ for(const v of state.villages){ if(v.stage==='fire') continue;
+  const priv=new Set(v.road||[]); for(const p of v.plots||[]) for(const i of p.region||[]) priv.add(i);
+  for(const i of v.fields||[]) priv.add(i); for(const f of v.farms||[]) if(Array.isArray(f)) priv.add(idx(f[0],f[1]));
+  for(const [gx,gy] of v.gates||[]) for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++) priv.add(idx(gx+dx,gy+dy)); // a entrada do portão conta como rua
+  for(const i of v.region||[]){ if(priv.has(i)) continue; const c=state.cells[i]; if(!c||c.build||c.water||ehRua40(c)) continue; rua40[i]=1; } }
+}
+let rua40Alvo=null; // [tx,ty] do caminho sendo calculado: só o destino (e a volta dele) pode ser chão público
+{ const _sc=stepCost; stepCost=function(e,x,y,bv){ const s=_sc(e,x,y,bv);
+  if(s>0&&rua40&&e&&e.sp==='human'&&e.id!==state.playerId&&rua40[y*state.w+x]){
+   if(rua40Alvo&&Math.max(Math.abs(x-rua40Alvo[0]),Math.abs(y-rua40Alvo[1]))>rua40Alvo[2]) return -1;  // custo infinito fora da rua
+   return s*RUA40.CUSTO; }
+  return s; }; }
+/* se não existir caminho só por rua (lote ou destino isolado), calcula de novo sem a regra, para ninguém ficar preso */
+{ const _fp=findPath; findPath=function(e,tx,ty){ if(!rua40||!e||e.sp!=='human') return _fp.apply(this,arguments);
+  rua40Alvo=[tx,ty,arguments[3]?1:0]; let p; try{ p=_fp.apply(this,arguments); } finally{ rua40Alvo=null; }
+  if(!p){ p=_fp.apply(this,arguments);
+   if(p){ rua40Fora++; for(const [px,py] of p){ const x=Math.floor(px), y=Math.floor(py), i=y*state.w+x; if(!rua40[i]) continue; // não havia rua: a cidade abre uma rua de terra batida ali
+     const c=state.cells[i]; c.terrain='trampled'; c.grass=0; rua40[i]=0; markDirty(x,y); rua40Abertas++; } } }
+  return p; }; }
+let rua40Abertas=0;
+let rua40Fora=0;
+/* passeio sem caminho (andar à toa): dentro da cidade, não pisa no chão público fora da rua */
+{ const _pa=passable; passable=function(e,fx,fy){ const r=_pa(e,fx,fy); if(!r||!rua40||!e||e.sp!=='human'||e.path||e.id===state.playerId) return r;
+  const x=Math.floor(fx), y=Math.floor(fy); if(x<0||y<0||x>=state.w||y>=state.h||!rua40[y*state.w+x]) return r;
+  const ex=Math.floor(e.x), ey=Math.floor(e.y); return !!rua40[ey*state.w+ex]; }; } // já está no chão público: deixa sair
+{ const _uw=updateWorld; updateWorld=function(dt){ _uw(dt); rua40T+=dt; if(rua40T>=RUA40.REFAZ||!rua40){ rua40T=0; try{ ruaMask40(); }catch(err){ v31Err(err); } } }; }
+/* passeio, brincadeira e ronda com destino no chão público: o destino vai para a rua mais perto */
+const TAREFA_LIVRE40 = new Set(['idle']);
+function ruaPerto40(x,y,R=8){ let best=null, bd=1e9; for(let dy=-R;dy<=R;dy++) for(let dx=-R;dx<=R;dx++){ const nx=x+dx, ny=y+dy; if(nx<0||ny<0||nx>=state.w||ny>=state.h) continue;
+  const c=state.cells[ny*state.w+nx]; if(!c.reg||!ehRua40(c)) continue; const d=dx*dx+dy*dy; if(d<bd){ bd=d; best=[nx,ny]; } } return best; }
+{ const _st=setTask; setTask=function(e,t,v){ try{ if(t&&t.x!=null&&rua40&&e&&e.sp==='human'&&TAREFA_LIVRE40.has(t.t)&&rua40[t.y*state.w+t.x]){ const r=ruaPerto40(t.x,t.y); if(r){ t.x=r[0]; t.y=r[1]; t.adj=false; } } }catch(err){ v31Err(err); }
+  return _st.apply(this,arguments); }; }
+Object.assign(window.MV40, {RUA40, ruaMask40, rua40:()=>rua40, semCaminhoPorRua:()=>rua40Fora, ruasAbertas:()=>rua40Abertas});
+
+/* =====================================================================
+   v40 · FASE 7 · NÔMADES E ACAMPAMENTOS
+   Família sem casa (de qualquer povo; nomadismo é estado, não traço do povo)
+   escolhe entre VIAJAR, ACAMPAR e ENTRAR NA CIDADE com pontuação ponderada.
+   Acampamento que chega ao tamanho limite vira cidade (foundVillage).
+   Dados: pessoa → w7.e40.nom = {m, x, y, c, t} · acampamentos → state.e40.acamps
+   (os dois já são salvos; o save continua v10).
+   ===================================================================== */
+const NOM40 = {ESPERA:DAY*.1, REVER:DAY*.5, RAIO_CIDADE:80, RAIO_ACAMP:30, LIMITE:6, VIAGEM:[25,45], POR_TICK:4, DESCANSO:DAY*.25};
+const acamps40 = () => (e40().acamps ||= []);
+let nomId40 = 1, nomRR40 = 0;
+/* "sem casa": adulto sem vila, que não é eremita, fazendeiro, guilda, salteador, mercenário nem o jogador */
+const semCasa40 = e => e && e.sp==='human' && e.hp>0 && !e.vid && isAdultH(e) && e.id!==state.playerId && !e.raid &&
+ !e.hermit && !e.guild && !e.bandit && !e.farmBoss && !e.merc && !e.gwork && !e.famOf && !e.farmKid && e.job==='livre' && !(e.w7&&(e.w7.av||e.w7.hid));
+const nom40 = e => { const p=P40(e); return p&&p.nom||null; };
+function familia40(e){ const pr=e.partner&&byId.get(e.partner); return pr&&semCasa40(pr)?[e,pr]:[e]; }
+const nomeEt40 = e => (etniaById(etDe(e)).nome||'').toLowerCase();
+/* admissão na cidade: a mesma regra da fase 5 (rei intolerante não recebe gente de outro povo; ninguém é expulso) */
+function aceita40(v,fam){ if(!v.e40||reiTol(v)!=='intolerante') return true; const k=byId.get(v.king); const et=k?etDe(k):v.e40.et; return fam.every(h=>etDe(h)===et); }
+function cidadePerto40(e,fam){
+ let best=null, bd=1e9;
+ for(const v of state.villages){ if(v.stage==='fire') continue; const d=Math.hypot(v.cx-e.x,v.cy-e.y); if(d>NOM40.RAIO_CIDADE||d>=bd) continue;
+  if(members(v).length+fam.length>VCAP[Math.min(3,v.era||0)]-2) continue; if(!aceita40(v,fam)) continue; best=v; bd=d; }
+ return best?{v:best,d:bd}:null;
+}
+function acampPerto40(e){ let best=null, bd=1e9; for(const A of acamps40()){ const d=Math.hypot(A.x-e.x,A.y-e.y); if(d<=NOM40.RAIO_ACAMP&&d<bd){ bd=d; best=A; } } return best?{A:best,d:bd}:null; }
+/* pontuação ponderada (igual para todos os povos) */
+function pontos40(e,fam){
+ const cid=cidadePerto40(e,fam), ac=acampPerto40(e), r=()=>Math.random();
+ const s={
+  cidade: cid ? 2 + 1.5*(1-cid.d/NOM40.RAIO_CIDADE) + r() : 0,
+  acampar: 1 + (ac ? .35*ac.A.m.length : 0) + (fam.length>1 ? .5 : 0) + r(),
+  viajar: .8 + (!cid&&!ac ? .5 : 0) + r()
+ };
+ return {s, cid, ac};
+}
+function entraCidade40(fam,v){
+ const p=fam.length>1&&v.stage==='grow'&&v.plots.length<40?createPlot(v):null;
+ for(const h of fam){ Object.assign(h,{vid:v.id,born:0,plotId:p?p.id:0,task:null,path:null,freeSince:null}); h.look.c=v.color; h.job=needJob(v); P40(h).nom=null; }
+}
+function novoAcamp40(e){
+ const f=findCell(e.x,e.y,6,(c,x,y)=>buildable(c)&&!c.reg&&!c.owner) || [Math.floor(e.x),Math.floor(e.y)];
+ const A={id:nomId40++, x:f[0], y:f[1], m:[], et:etDe(e), t:state.time};
+ while(acamps40().some(o=>o.id===A.id)) A.id=nomId40++;
+ const c=cell(f[0],f[1]); if(c&&buildable(c)&&!c.reg){ setBuild(f[0],f[1],'fire',0); A.fogo=1; markAround(f[0],f[1],1); }
+ acamps40().push(A); return A;
+}
+function decide40(e){
+ const fam=familia40(e), {s,cid,ac}=pontos40(e,fam), ant=(nom40(e)||{}).dec;
+ let m='viajar'; if(s.acampar>s[m]) m='acampar'; if(s.cidade>s[m]) m='cidade';
+ const nome=e.name+(fam.length>1?' e família':''), pts=`viajar ${s.viajar.toFixed(1)} · acampar ${s.acampar.toFixed(1)} · cidade ${s.cidade.toFixed(1)}`;
+ let txt='';
+ if(m==='cidade'){ entraCidade40(fam,cid.v); txt=`🧭 ${nome} (sem casa, ${nomeEt40(e)}) decidiu ENTRAR NA CIDADE ${cid.v.name} — ${pts}`; }
+ else if(m==='acampar'){ const A=ac?ac.A:novoAcamp40(e); for(const h of fam){ if(!A.m.includes(h.id)) A.m.push(h.id); P40(h).nom={m:'acampar',x:A.x,y:A.y,c:A.id,t:state.time}; }
+  txt=`🧭 ${nome} (sem casa, ${nomeEt40(e)}) decidiu ACAMPAR${ac?' no acampamento de perto':' e acendeu uma fogueira'} (${A.m.length} no acampamento) — ${pts}`; }
+ else { let tx=Math.floor(e.x), ty=Math.floor(e.y);
+  for(let t=0;t<10;t++){ const ang=Math.random()*Math.PI*2, d=NOM40.VIAGEM[0]+Math.random()*(NOM40.VIAGEM[1]-NOM40.VIAGEM[0]); const x=Math.floor(e.x+Math.cos(ang)*d), y=Math.floor(e.y+Math.sin(ang)*d);
+   if(inside(x,y)&&x>3&&y>3&&x<state.w-4&&y<state.h-4&&passable(e,x,y)&&!cell(x,y).reg){ tx=x; ty=y; break; } }
+  for(const h of fam) P40(h).nom={m:'viajar',x:tx,y:ty,c:0,t:state.time};
+  txt=`🧭 ${nome} (sem casa, ${nomeEt40(e)}) decidiu VIAJAR para longe — ${pts}`; }
+ for(const h of fam){ const n=P40(h).nom; if(n) n.dec=m; }
+ const L=e40(); L.dec=L.dec||{viajar:0,acampar:0,cidade:0}; L.dec[m]++;
+ if(!(m==='viajar'&&ant==='viajar')) pushLog(txt, false);                     // viagem seguida de viagem: conta, mas não repete no log
+ return m;
+}
+/* acampamento grande vira cidade */
+function acampCidade40(A){
+ const ad=A.m.map(id=>byId.get(id)).filter(h=>semCasa40(h)); if(ad.length<NOM40.LIMITE) return false;
+ let a=null, b=null;
+ for(const h of ad){ const pr=h.partner&&byId.get(h.partner); if(pr&&ad.includes(pr)){ a=h; b=pr; break; } }
+ if(!a) for(const h of ad){ if(h.partner) continue; const o=ad.find(o=>o!==h&&!o.partner&&o.sex!==h.sex); if(o){ a=h; b=o; break; } }
+ if(!a){ A.semCasal=1; return false; }
+ if(m34Reinos()>=REINO32.MAX){ if(!A.vaga){ A.vaga=1; pushLog(`⛺ O acampamento já tem ${ad.length} adultos e espera vaga para virar cidade (o mundo já tem ${REINO32.MAX} reinos)`); } return false; } // limite de reinos da v32
+ const n0=state.villages.length; if(!foundVillage(a,b)){ A.falhou=(A.falhou||0)+1; if(A.falhou%3===0) mudaAcamp40(A,ad); return false; }
+ const v=state.villages[n0]||villageById(a.vid); if(!v) return false;
+ const kids=state.ents.filter(k=>k.sp==='human'&&k.hp>0&&!k.vid&&!isAdultH(k)&&(k.parents||[]).some(p=>A.m.includes(p)));
+ for(const h of ad.concat(kids)){ if(h===a||h===b) continue; Object.assign(h,{vid:v.id,born:0,plotId:0,task:null,path:null,freeSince:null}); h.look.c=v.color; if(isAdultH(h)) h.job=needJob(v); }
+ for(const h of ad) if(P40(h)) P40(h).nom=null;
+ fimAcamp40(A);
+ const L=e40(); L.viraram=(L.viraram||0)+1;
+ pushLog(`⛺➜🏘️ O acampamento cresceu (${ad.length} adultos) e virou a cidade ${v.name}`, true, {x:v.cx,y:v.cy});
+ return true;
+}
+/* não cabe cidade aqui (perto da borda, da água ou de outra vila): o acampamento muda para mais perto do meio do mapa */
+function mudaAcamp40(A,ad){
+ const mx=state.w/2, my=state.h/2, d=Math.hypot(mx-A.x,my-A.y)||1, k=Math.min(1,22/d);
+ const f=findCell(Math.round(A.x+(mx-A.x)*k),Math.round(A.y+(my-A.y)*k),6,(c,x,y)=>buildable(c)&&!c.reg&&!c.owner); if(!f) return;
+ if(A.fogo){ const c=cell(A.x,A.y); if(c&&c.build==='fire'&&!c.reg){ clearBuild(A.x,A.y); markAround(A.x,A.y,1); } A.fogo=0; }
+ A.x=f[0]; A.y=f[1]; setBuild(A.x,A.y,'fire',0); A.fogo=1; markAround(A.x,A.y,1);
+ for(const h of ad){ const n=nom40(h); if(n&&n.c===A.id){ n.x=A.x; n.y=A.y; h.task=null; h.path=null; } }
+ pushLog(`⛺ O acampamento não tinha espaço para virar cidade e mudou de lugar`);
+}
+function fimAcamp40(A){ const L=acamps40(), i=L.indexOf(A); if(i>=0) L.splice(i,1);
+ if(A.fogo){ const c=cell(A.x,A.y); if(c&&c.build==='fire'&&!c.reg){ clearBuild(A.x,A.y); markAround(A.x,A.y,1); } } }
+function nomadeTick(){
+ // acampamentos: tira quem saiu ou morreu; o grande vira cidade; vazio some
+ for(const A of acamps40().slice()){ A.m=A.m.filter(id=>{ const h=byId.get(id); const n=h&&nom40(h); return semCasa40(h)&&n&&n.c===A.id; });
+  if(!A.m.length){ fimAcamp40(A); continue; } acampCidade40(A); }
+ // famílias sem casa: poucas por passo
+ const H=state.ents; if(!H.length) return; let n=0;
+ for(let k=0;k<H.length&&n<NOM40.POR_TICK;k++){ const e=H[(nomRR40++)%H.length]; if(!semCasa40(e)||!P40(e)) continue;
+  if(e.partner&&e.partner<e.id&&semCasa40(byId.get(e.partner))) continue;         // a família decide pelo de menor número
+  const p=P40(e); if(p.semT==null){ p.semT=state.time; continue; }
+  if(state.time-p.semT<NOM40.ESPERA) continue;
+  const nm=p.nom;
+  if(nm&&nm.m==='viajar'){ if(Math.hypot(nm.x-e.x,nm.y-e.y)>3){ if(state.time-nm.t<NOM40.REVER) continue; }   // ainda viajando
+   else { if(nm.cheg==null) nm.cheg=state.time; if(state.time-nm.cheg<NOM40.DESCANSO) continue; } }          // chegou: descansa antes de decidir de novo
+  if(nm&&nm.m==='acampar'&&state.time-nm.t<NOM40.REVER) continue;                              // acampado: revê de tempos em tempos
+  if(nm&&nm.m==='acampar'){ const A=acamps40().find(a=>a.id===nm.c); const cid=A&&cidadePerto40(e,familia40(e)); if(A&&!cid){ for(const h of familia40(e)) P40(h).nom.t=state.time; continue; } if(A){ A.m=A.m.filter(id=>!familia40(e).some(h=>h.id===id)); } }
+  n++; decide40(e);
+ }
+ for(const e of H) if(e.sp==='human'&&e.vid&&P40(e)){ const p=P40(e); if(p.semT!=null) p.semT=null; if(p.nom) p.nom=null; }
+}
+/* andar conforme a decisão (fome, perigo e caça vêm antes: o pensamento normal roda primeiro) */
+const PRIORIDADE40 = new Set(['flee','fight','hunt','eat','fruit','egg','brawl','rest','defend']);
+{ const _ht=humanThink; humanThink=function(e){ const r=_ht.apply(this,arguments);
+  try{ const n=e.sp==='human'&&!e.vid&&nom40(e);
+   if(n&&semCasa40(e)){
+    e.freeSince=state.time;                                                    // quem tem plano não vira eremita nem entra em guilda
+    if(!(e.task&&PRIORIDADE40.has(e.task.t))&&e.mode!=='hunt'){
+     const meu=e.task&&e.task.n40, d=Math.hypot(n.x+.5-e.x,n.y+.5-e.y);
+     if(n.m==='viajar'){ if(d>2&&(!meu||!(e.path&&e.path.length))){ e.task={t:'idle',n40:1,label:'viajando (sem casa)'}; if(!goTo(e,n.x,n.y,true,9000)) n.t=state.time-NOM40.REVER+DAY*.1; } }
+     else if(n.m==='acampar'){ if(d>4){ if(!meu||!(e.path&&e.path.length)){ e.task={t:'idle',n40:1,label:'indo para o acampamento'}; goTo(e,n.x,n.y,true); } }
+      else if(!meu||!(e.path&&e.path.length)){ e.task={t:'idle',n40:1,label:'acampado'}; e.path=null; pickWander(e,3); } }
+    } } }catch(err){ v31Err(err); }
+  return r; }; }
+{ const _t=e40Tick; e40Tick=function(){ _t(); try{ nomadeTick(); }catch(err){ v31Err(err); } }; }
+Object.assign(window.MV40, {NOM40, acamps:()=>acamps40(), decide40, nomadeTick, semCasa40, acampCidade40, novoAcamp40});
+/* casal que se forma no acampamento fica no acampamento (o acampamento cresce e depois vira cidade) */
+{ const _pu=pairUp; pairUp=function(a,b){
+  try{ const na=!a.vid&&nom40(a), nb=!b.vid&&nom40(b), A=na&&na.m==='acampar'?na:nb&&nb.m==='acampar'?nb:null;
+   if(A&&!a.vid&&!b.vid&&!a.partner&&!b.partner){ const C=acamps40().find(c=>c.id===A.c);
+    if(C){ for(const h of [a,b]){ if(!C.m.includes(h.id)) C.m.push(h.id); P40(h).nom={m:'acampar',x:C.x,y:C.y,c:C.id,t:state.time,dec:'acampar'}; h.task=null; h.path=null; }
+     a.partner=b.id; b.partner=a.id; pushLog(`💞 ${a.name} e ${b.name} formaram uma família no acampamento (${C.m.length} no acampamento)`); return true; } } }catch(err){ v31Err(err); }
+  return _pu.apply(this,arguments); }; }
+/* =====================================================================
+   v40 · FASE 8 · FESTAS COMO DADOS (id, data, efeito)
+   Cada festa é uma linha da tabela FESTAS. Quem celebra são os moradores
+   daquele povo, em qualquer cidade. Dados novos ficam em v.e40 (já salvo):
+   fel (felicidade 0–100), coesao (0–100), prest (prestígio do rei), fd (último dia visto).
+   Datas: o calendário do jogo (cal(): m 0=janeiro, d 1–31, wd 0=segunda … 6=domingo).
+   ===================================================================== */
+const FESTAS = [
+ {id:'santa_sara', et:'romani',     nome:'Festa de Santa Sara Kali', e:'🌹', data:{m:4,d:24}, efeito:{fel:15}},
+ {id:'shabat',     et:'judeu',      nome:'Shabat',                   e:'🕯️', semanal:{de:{wd:4,h:18}, ate:{wd:5,h:18}}, efeito:{pausa:true, coesao:5}},
+ {id:'pessach',    et:'judeu',      nome:'Páscoa judaica (Pessach)', e:'🍷', data:{m:3,d:15}, efeito:{refeicao:true, coesao:5}},
+ {id:'mastro',     et:'ingles',     nome:'Mastro de maio',           e:'🎀', data:{m:4,d:1},  efeito:{fel:10}},
+ {id:'torneio',    et:'ingles',     nome:'Torneio de cavaleiros',    e:'🏇', data:{m:3,d:23}, efeito:{prestigio:10}},
+ {id:'junina',     et:'brasileiro', nome:'Festa junina',             e:'🌽', data:{m:5,d:24}, efeito:{fel:15}},
+ {id:'carnaval',   et:'brasileiro', nome:'Carnaval',                 e:'🎭', data:{m:1,d:15}, efeito:{fel:20}}
+];
+const FESTA_BASE = {fel:50, coesao:50, prest:0, VOLTA:1};   // felicidade e coesão voltam 1 ponto por dia para 50
+const TRAB40 = new Set(['chop','mine','harvest','build','forge','fish','wall','pave','tower','reform','fcraft','fcollect','ffill','deliver','csell','hsell','trade','deposit','loadfood','study','fherd','feedherd']);
+const lim40 = x => Math.max(0,Math.min(100,x));
+const festaStat40 = v => { const E=v.e40; if(E.fel==null){ E.fel=FESTA_BASE.fel; E.coesao=FESTA_BASE.coesao; E.prest=FESTA_BASE.prest; } return E; };
+const participantes40 = (v,et) => members(v).filter(e=>etDe(e)===et);
+/* Shabat (ou outra festa semanal) acontecendo agora? */
+function semanalAgora40(F,C){ const S=F.semanal; if(!S) return false; C=C||cal();
+ const t=C.wd*24+C.h, a=S.de.wd*24+S.de.h, b=S.ate.wd*24+S.ate.h; return a<=b ? t>=a&&t<b : t>=a||t<b; }
+const shabatAgora40 = () => semanalAgora40(FESTAS.find(f=>f.id==='shabat'));
+function aplicaFesta40(v,F,ps){
+ const E=festaStat40(v), ef=F.efeito, txt=[];
+ if(ef.fel){ E.fel=lim40(E.fel+ef.fel); txt.push(`+${ef.fel} de felicidade`); }
+ if(ef.coesao){ E.coesao=lim40(E.coesao+ef.coesao); txt.push(`+${ef.coesao} de união`); }
+ if(ef.refeicao){ let comida=0; for(const e of ps){ const usa=Math.min(.5,Math.max(0,v.food||0)); v.food=(v.food||0)-usa; comida+=usa; e.hunger=100; } txt.push(`refeição coletiva para ${ps.length}`); }
+ if(ef.prestigio){ E.prest=(E.prest||0)+ef.prestigio; const k=byId.get(v.king); if(k){ k.xp=(k.xp||0)+ef.prestigio; addFloat(k.x,k.y-1,'🏆'); } txt.push(`+${ef.prestigio} de prestígio do rei`); }
+ if(ef.pausa) txt.push('descanso do trabalho');
+ for(const e of ps.slice(0,8)) addFloat(e.x,e.y-.8,F.e);
+ if(!ef.pausa) celebrate(v.cx,v.cy,SHIRTS[v.color]);
+ E.ult={id:F.id, di:cal().di}; (E.hist||(E.hist=[])).push(F.id); if(E.hist.length>20) E.hist.shift();
+ pushLog(`${F.e} ${v.name} celebra ${F.nome} (${ps.length} ${etniaById(F.et).nome.toLowerCase()}) — ${txt.join(', ')}`, false);
+}
+function festaTick(){
+ const C=cal();
+ for(const v of state.villages){ if(!v.e40||!members(v).length) continue; const E=festaStat40(v);
+  if(E.fd!==C.di){ // um novo dia: festas de data fixa e a volta lenta para o normal
+   if(E.fd!=null){ const n=Math.min(30,Math.max(1,C.di-E.fd)); for(const k of ['fel','coesao']) E[k]=E[k]>50?Math.max(50,E[k]-n*FESTA_BASE.VOLTA):Math.min(50,E[k]+n*FESTA_BASE.VOLTA); }
+   E.fd=C.di;
+   for(const F of FESTAS){ if(!F.data||F.data.m!==C.m||F.data.d!==C.d) continue; const ps=participantes40(v,F.et); if(ps.length) aplicaFesta40(v,F,ps); }
+  }
+  for(const F of FESTAS){ if(!F.semanal) continue; const on=semanalAgora40(F,C), k='sem_'+F.id;   // festa semanal: efeito uma vez quando começa
+   if(on&&!E[k]){ E[k]=1; const ps=participantes40(v,F.et); if(ps.length) aplicaFesta40(v,F,ps); } else if(!on&&E[k]) E[k]=0; }
+ }
+}
+/* Shabat: quem é judeu não pega tarefa de trabalho (descansa); defesa, comida e fuga continuam */
+{ const _st=setTask; setTask=function(e,t,v){ try{ if(t&&TRAB40.has(t.t)&&e&&e.sp==='human'&&e.id!==state.playerId&&etDe(e)==='judeu'&&shabatAgora40()){ e.task=null; return false; } }catch(err){ v31Err(err); }
+  return _st.apply(this,arguments); }; }
+{ const _t=e40Tick; e40Tick=function(){ _t(); try{ festaTick(); }catch(err){ v31Err(err); } }; }
+/* painel da vila: felicidade, união, prestígio e a última festa */
+{ const _vi=villageInfo; villageInfo=function(){ _vi.apply(this,arguments); try{ const v=villageById(state.infoRef); if(!v||!v.e40||v.e40.fel==null) return; const E=v.e40, U=E.ult&&FESTAS.find(f=>f.id===E.ult.id);
+  $('infoLines').insertAdjacentHTML('beforeend',`<div><b>🎉 Festas:</b> felicidade ${Math.round(E.fel)} · união ${Math.round(E.coesao)} · prestígio do rei ${E.prest||0}${U?` · última: ${U.e} ${U.nome}`:''}</div>`); }catch(err){ v31Err(err); } }; }
+Object.assign(window.MV40, {FESTAS, festaTick, shabatAgora40, semanalAgora40, aplicaFesta40, __setTask:(e,t,v)=>setTask(e,t,v)});
+/* =====================================================================
+   v40 · FASE 9 · HIPÓDROMO, CORRIDAS E APOSTAS
+   Tipo novo de construção 'hipodromo' (no FIM de BUILDS, noMenu). Cidade
+   (era Cidade ou mais) ganha um hipódromo num chão público; corrida todo sábado 15h.
+   4 a 6 cavalos. Velocidade = base × aleatório(0,9–1,1) × (1 + 0,05 × treino).
+   Aposta: no máximo 20% das moedas da pessoa. A casa (o tesouro da cidade) fica com 10%
+   do total apostado; o resto é dividido entre quem acertou, na proporção da aposta.
+   Ninguém acertou: o prêmio volta para quem apostou. Nenhuma moeda é criada:
+   o dinheiro só troca de mão (pessoas ↔ tesouro). Dados em v.e40.hip (já salvo).
+   ===================================================================== */
+const HIP40 = {CAVALOS:[4,6], APOSTA_MAX:.2, TAXA:.1, CHANCE_APOSTAR:.35, TREINO_MAX:10, ERA:1, DIA:5, HORA:15,
+ NOMES:['Relâmpago','Trovão','Estrela','Ventania','Faísca','Cometa','Pé-de-Vento','Moreno','Baio','Tordilho','Zéfiro','Brisa']};
+const r2 = x => Math.round(x*100)/100;
+function cavalosNovos40(){ const n=HIP40.CAVALOS[0]+((Math.random()*(HIP40.CAVALOS[1]-HIP40.CAVALOS[0]+1))|0), nm=HIP40.NOMES.slice().sort(()=>Math.random()-.5);
+ return nm.slice(0,n).map(nome=>({nome, base:r2(.9+Math.random()*.2), treino:0, vit:0})); }
+const velCavalo40 = c => c.base*(.9+Math.random()*.2)*(1+.05*c.treino);       // a fórmula do plano
+/* uma corrida: devolve o resultado; o dinheiro total (pessoas + tesouro) não muda */
+function corrida40(v, quiet){
+ const Hp=v.e40&&v.e40.hip; if(!Hp) return null; const C=Hp.cavalos;
+ // apostas
+ const bets=[]; for(const e of members(v)){ if(!isAdultH(e)||e.id===state.playerId) continue; const m=e.coins||0; if(m<1||Math.random()>HIP40.CHANCE_APOSTAR) continue;
+  const val=r2(Math.min(m*HIP40.APOSTA_MAX, Math.max(1, m*HIP40.APOSTA_MAX*Math.random()))); if(val<=0||val>m*HIP40.APOSTA_MAX+1e-9) continue;
+  e.coins=m-val; bets.push({e, c:(Math.random()*C.length)|0, val}); }
+ const pote=r2(bets.reduce((s,b)=>s+b.val,0));
+ // a corrida
+ const vel=C.map(velCavalo40); let w=0; for(let i=1;i<C.length;i++) if(vel[i]>vel[w]) w=i;
+ C[w].vit++; for(const c of C) if(c.treino<HIP40.TREINO_MAX) c.treino=r2(Math.min(HIP40.TREINO_MAX,c.treino+.25));
+ // pagamento
+ const taxa=r2(pote*HIP40.TAXA), premio=r2(pote-taxa), ganh=bets.filter(b=>b.c===w);
+ const quem=ganh.length?ganh:bets, bq=quem.reduce((s,b)=>s+b.val,0);              // ninguém acertou: o prêmio volta para quem apostou
+ let pago=0; for(const b of quem){ const p=r2(premio*b.val/bq); b.e.coins=(b.e.coins||0)+p; pago=r2(pago+p); }
+ const casa=pote-pago; v.coins=coinsOf(v)+casa;                       // a taxa (e a sobra do arredondamento)
+ Hp.n=(Hp.n||0)+1; Hp.pote=r2((Hp.pote||0)+pote); Hp.casa=r2((Hp.casa||0)+casa);
+ const R={vencedor:C[w].nome, apostas:bets.length, pote, casa, ganhadores:ganh.length};
+ if(!quiet){ const a=Hp.a; addFloat(a%state.w,(a/state.w)|0,'🏇'); const f=x=>x>=10?Math.round(x):x.toFixed(1); pushLog(`🏇 Corrida em ${v.name}: venceu ${C[w].nome}${bets.length?` · ${bets.length} ${bets.length>1?'apostaram':'apostou'} ${f(pote)}🪙 · ${ganh.length?ganh.length+' acertou'+(ganh.length>1?'aram':''):'ninguém acertou (prêmio devolvido)'} · a casa ficou com ${f(casa)}🪙`:' · ninguém apostou'}`, false); }
+ return R;
+}
+/* o hipódromo: um chão público dentro da cidade (não é rua, nem lote, nem roça) */
+function poeHip40(v){
+ if(!rua40) return false; let best=-1, bd=1e9;
+ for(const i of v.region){ if(!rua40[i]) continue; const c=state.cells[i]; if(c.build||c.water) continue; const x=i%state.w, y=(i/state.w)|0, d=Math.hypot(x-v.cx,y-v.cy); if(d<3) continue; if(d<bd){ bd=d; best=i; } }
+ if(best<0) return false; const x=best%state.w, y=(best/state.w)|0;
+ setBuild(x,y,'hipodromo',v.id); markAround(x,y,1);
+ v.e40.hip={a:best, cavalos:cavalosNovos40(), n:0, pote:0, casa:0, ult:-1};
+ pushLog(`🏇 ${v.name} abriu um hipódromo com ${v.e40.hip.cavalos.length} cavalos (corrida todo sábado à tarde)`, false);
+ return true;
+}
+function hipTick(){
+ const C=cal();
+ for(const v of state.villages){ if(!v.e40||(v.era||0)<HIP40.ERA||!members(v).length) continue;
+  const Hp=v.e40.hip; if(Hp&&state.cells[Hp.a].build!=='hipodromo') v.e40.hip=null;           // demolido: reconstrói
+  if(!v.e40.hip){ poeHip40(v); continue; }
+  if(C.wd===HIP40.DIA&&C.h>=HIP40.HORA&&v.e40.hip.ult!==C.di){ v.e40.hip.ult=C.di; corrida40(v); }
+ }
+}
+{ const _t=e40Tick; e40Tick=function(){ _t(); try{ hipTick(); }catch(err){ v31Err(err); } }; }
+/* desenho: pista oval de terra com cerca branca e um cavalinho */
+{ const _dsb=drawSmallBuild; drawSmallBuild=function(g,c,x,y,px,py){ if(c.build!=='hipodromo') return _dsb.apply(this,arguments);
+  g.fillStyle='#6f9a4a'; g.fillRect(px,py,T,T);
+  g.fillStyle='#c9a46a'; g.beginPath(); g.ellipse(px+8,py+8,7.5,5.5,0,0,Math.PI*2); g.fill();
+  g.fillStyle='#6f9a4a'; g.beginPath(); g.ellipse(px+8,py+8,4.5,2.5,0,0,Math.PI*2); g.fill();
+  g.strokeStyle='#f4f1e6'; g.lineWidth=1; g.beginPath(); g.ellipse(px+8,py+8,7.5,5.5,0,0,Math.PI*2); g.stroke();
+  g.fillStyle='#5a3a22'; g.fillRect(px+2,py+6,3,2); g.fillRect(px+4,py+5,1,1); g.fillStyle='#e8d29a'; g.fillRect(px+12,py+2,1,4); g.fillStyle='#d84a3a'; g.fillRect(px+13,py+2,2,2); }; }
+/* painel da cidade */
+{ const _vi=villageInfo; villageInfo=function(){ _vi.apply(this,arguments); try{ const v=villageById(state.infoRef); const Hp=v&&v.e40&&v.e40.hip; if(!Hp) return;
+  const top=Hp.cavalos.slice().sort((a,b)=>b.vit-a.vit)[0];
+  $('infoLines').insertAdjacentHTML('beforeend',`<div><b>🏇 Hipódromo:</b> ${Hp.cavalos.length} cavalos · ${Hp.n} corridas · apostado ${Math.round(Hp.pote)}🪙 · casa ${Math.round(Hp.casa)}🪙${top&&top.vit?` · campeão: ${top.nome} (${top.vit})`:''}</div>`); }catch(err){ v31Err(err); } }; }
+Object.assign(window.MV40, {HIP40, corrida40, poeHip40, hipTick, velCavalo40});
+/* =====================================================================
+   v40 · FASE 10 · ESTRADAS DE UMA PISTA ENTRE OS PORTÕES
+   O jogo já liga as cidades com estradas (v29: hwEnds = logo fora do portão,
+   hwRoute = caminho em grade de 8 direções, 1 quadrado de largura).
+   A v40 só acerta o traçado das estradas NOVAS: toda curva fica de 45°
+   (curva de 90° ou mais vira duas curvas de 45°, cortando o canto) e a
+   estrada não corre colada ao lado de outra (sem pista dupla).
+   Estradas que já existem (e as avenidas de 2 faixas da v36) não mudam.
+   ===================================================================== */
+const EST40 = {ATIVO:true, LADO:2, CURVA:4};   // custo extra: andar colado ao lado de outra estrada · curva maior que 45°
+const dirDe40 = (a,b) => { const W=state.w, dx=(b%W)-(a%W), dy=((b/W)|0)-((a/W)|0); return D8B.findIndex(d=>d[0]===dx&&d[1]===dy); };
+const ANG40 = [0,2,4,6,1,7,3,5];                       // D8B → oitavos de volta (0 = leste, sentido horário)
+function giro40(d1,d2){ if(d1<0||d2<0) return 9; const a=Math.abs(ANG40[d1]-ANG40[d2])%8; return Math.min(a,8-a); } // 0 reto · 1 = 45° · 2 = 90° · 3 = 135°
+const vizinho8 = (a,b) => { const W=state.w; return Math.max(Math.abs((a%W)-(b%W)),Math.abs(((a/W)|0)-((b/W)|0)))===1; };
+/* corta os cantos: curva maior que 45° perde o quadrado do canto (se as duas pontas se tocam e não é ponte) */
+function suaviza40(p){
+ if(!p||p.length<3) return p; p=p.slice();
+ for(let volta=0;volta<p.length;volta++){ let mudou=false;
+  for(let i=1;i<p.length-1;i++){ const g=giro40(dirDe40(p[i-1],p[i]),dirDe40(p[i],p[i+1])); if(g<=1) continue;
+   if(vizinho8(p[i-1],p[i+1])&&!state.cells[p[i]].water&&!state.cells[p[i-1]].water&&!state.cells[p[i+1]].water){ p.splice(i,1); mudou=true; i=Math.max(0,i-2); continue; }
+   // duas diagonais em V (90°): o canto vira o quadrado do meio e o trecho fica reto
+   const W=state.w, ax=p[i-1]%W, ay=(p[i-1]/W)|0, bx=p[i+1]%W, by=(p[i+1]/W)|0;
+   if((Math.abs(ax-bx)===2&&ay===by)||(Math.abs(ay-by)===2&&ax===bx)){ const m=((ay+by)/2)*W+(ax+bx)/2, c=state.cells[m];
+    if(c&&!c.water&&c.terrain!=='hillHigh'&&(!c.build||BUILDS[c.build].gate||c.build==='bridge')&&!state.cells[p[i]].water){ p[i]=m; mudou=true; i=Math.max(0,i-2); } } }
+  if(!mudou) break; }
+ return p;
+}
+/* estradas planejadas (mesmo as que ainda não foram abertas) e os quadrados colados nelas, fora das cidades */
+function plano40(){ const N=state.w*state.h, on=new Uint8Array(N), near=new Uint8Array(N), W=state.w;
+ for(const r of (state.roads||[])) for(const k of r.cells||[]) on[k]=1;
+ for(let k=0;k<N;k++){ const c=state.cells[k]; if(!c.reg&&!c.water&&(c.terrain==='trampled'||c.terrain==='paved')) on[k]=1; }
+ for(let k=0;k<N;k++){ if(!on[k]||state.cells[k].reg) continue; const x=k%W; for(const [dx,dy] of D8B){ const nx=x+dx, nk=k+dy*W+dx; if(nx<0||nx>=W||nk<0||nk>=N) continue; if(!on[nk]) near[nk]=1; } }
+ return {on, near}; }
+/* o mesmo A* da v29 (hwPath), com dois custos a mais: lado de estrada e curva fechada */
+function hwPath40(s,t,block){
+ const PL=plano40();
+ const W=state.w, N=W*state.h, G=new Float32Array(N).fill(1e9), P=new Int32Array(N).fill(-1), Dir=new Int8Array(N).fill(-1), done=new Uint8Array(N);
+ const si=s[1]*W+s[0], ti=t[1]*W+t[0]; G[si]=0;
+ const hk=[], hf=[]; let n=0;
+ const H=k=>{ const x=k%W, y=(k/W)|0, dx=Math.abs(x-t[0]), dy=Math.abs(y-t[1]); return Math.max(dx,dy)+.42*Math.min(dx,dy); };
+ const push=(k,f)=>{ let i=hk.length; hk.push(k); hf.push(f); while(i>0){ const p=(i-1)>>1; if(hf[p]<=f) break; hk[i]=hk[p]; hf[i]=hf[p]; i=p; } hk[i]=k; hf[i]=f; };
+ const pop=()=>{ const top=hk[0], lk=hk.pop(), lf=hf.pop(); if(hk.length){ let i=0; for(;;){ let c=2*i+1; if(c>=hk.length) break; if(c+1<hk.length&&hf[c+1]<hf[c]) c++; if(hf[c]>=lf) break; hk[i]=hk[c]; hf[i]=hf[c]; i=c; } hk[i]=lk; hf[i]=lf; } return top; };
+ push(si,H(si));
+ while(hk.length && n<Math.max(30000,state.w*state.h*.7)){ // v29: mapa maior, busca maior
+  const cur=pop();
+  if(done[cur]) continue; done[cur]=1; n++;
+  if(cur===ti) break;
+  const cx=cur%W, cy=(cur/W)|0;
+  for(let d=0;d<8;d++){ const [dx,dy]=D8B[d], nx=cx+dx, ny=cy+dy; if(nx<1||ny<1||nx>=W-1||ny>=state.h-1) continue;
+   const k=ny*W+nx; if(done[k]||block.has(k)) continue; const c=state.cells[k];
+   if(c.terrain==='hillHigh') continue;
+   if(c.build && !BUILDS[c.build].gate && c.build!=='bridge' && k!==ti) continue;
+   let cost=(c.terrain==='trampled'||c.terrain==='paved'||c.build==='bridge'||PL.on[k])?.45:c.water?5:c.terrain==='hillMid'?4:c.terrain==='hillLow'?1.6:c.tree?1.4:1;
+   if(!PL.on[k]&&PL.near[k]&&k!==ti) cost+=EST40.LADO; // v40: não corre colada ao lado de outra estrada (sem pista dupla)
+   if(c.reg && k!==ti) cost+=6;
+   if(d>=4){ cost*=1.42; if(c.water||cell(cx+dx,cy).water||cell(cx,cy+dy).water) cost+=2; }
+   if(Dir[cur]>=0 && Dir[cur]!==d) cost+=giro40(Dir[cur],d)>1?EST40.CURVA:.6; // v40: curva de 45° é barata; de 90° ou mais, cara
+   const g=G[cur]+cost; if(g<G[k]){ G[k]=g; P[k]=cur; Dir[k]=d; push(k,g+H(k)); }
+  }
+ }
+ if(P[ti]<0 && ti!==si) return null;
+ const out=[]; for(let k=ti;k>=0;k=P[k]){ out.push(k); if(k===si) break; } return out.reverse();
+}
+
+/* medidas para o teste (e para o relatório) */
+function medeEstradas40(rs){
+ rs=rs||(state.roads||[]).filter(r=>r.kind==='v'&&r.cells.length);
+ const W=state.w, todas=new Set(); let grade=0, curvas=0, curvasPonte=0, passos=0;
+ for(const r of rs){ const p=r.cells; for(const k of p) todas.add(k);
+  for(let i=1;i<p.length;i++){ passos++; if(!vizinho8(p[i-1],p[i])) grade++; }
+  for(let i=1;i<p.length-1;i++){ const g=giro40(dirDe40(p[i-1],p[i]),dirDe40(p[i],p[i+1])); if(g>1){ if(state.cells[p[i]].water||state.cells[p[i-1]].water||state.cells[p[i+1]].water) curvasPonte++; else curvas++; } } }
+ // pista dupla: bloco 2×2 todo de estrada, fora das cidades
+ // cruzamento em X (duas estradas cruzando na diagonal) não é pista dupla; duas estradas lado a lado é
+ const dono=new Map(); rs.forEach((r,i)=>{ for(const k of r.cells){ let s=dono.get(k); if(!s) dono.set(k,s=new Set()); s.add(i); } });
+ let dupla=0, cruz=0, pertoPonta=0; for(const k of todas){ if(state.cells[k].reg) continue; const q=[k,k+1,k+W,k+W+1]; if(!q.every(c=>todas.has(c))) continue;
+  const tem=(a,b)=>[...dono.get(a)].some(i=>dono.get(b).has(i));
+  const xis=!rs.some((r,i)=>q.filter(c=>dono.get(c).has(i)).length>=3)&&tem(k,k+W+1)&&tem(k+1,k+W);   // cada estrada passa na diagonal do bloco
+  if(xis) cruz++; else { dupla++; const ps=rs.flatMap(r=>[r.cells[0],r.cells[r.cells.length-1]]); const d=Math.min(...ps.map(p=>Math.max(Math.abs(p%W-k%W),Math.abs(((p/W)|0)-((k/W)|0))))); if(d<=2) pertoPonta++; } }
+ return {estradas:rs.length, passos, foraDaGrade:grade, curvasMaiorQue45:curvas, curvasEmPonte:curvasPonte, blocosPistaDupla:dupla, duplaPertoDaPonta:pertoPonta, cruzamentosEmX:cruz};
+}
+{ const _hp=hwPath; hwPath=function(s,t,block){ if(!EST40.ATIVO) return _hp.apply(this,arguments); try{ return hwPath40(s,t,block); }catch(err){ v31Err(err); return _hp.apply(this,arguments); } }; }
+{ const _hr=hwRoute; hwRoute=function(s,t){ const p=_hr.apply(this,arguments); if(!p||!EST40.ATIVO) return p; try{ return suaviza40(p); }catch(err){ v31Err(err); return p; } }; }
+Object.assign(window.MV40, {EST40, suaviza40, medeEstradas40, hwRoute:(s,t)=>hwRoute(s,t), hwEnds:(v,x,y)=>hwEnds(v,x,y)});
 selectTool('terrain');
 renderSaves();
 resize();
