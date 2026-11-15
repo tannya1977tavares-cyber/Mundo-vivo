@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Mundo Vivo v39</title>
+<title>Mundo Vivo v41</title>
 <style>
 /* Visual: painel escuro de "mesa de deus" em volta de um mapa em pixel art; verde-broto como acento. */
 :root{
@@ -379,7 +379,8 @@ const BUILDS = {
  coop:{e:'🐔',name:'Galinheiro',cost:{wood:6},solid:true,noMenu:true},
  silo:{e:'🌽',name:'Silo',cost:{wood:10},solid:true,noMenu:true},
  academy:{e:'🎓',name:'Academia',cost:{wood:40,stone:30},solid:true,size:3,noMenu:true},
- alchemy:{e:'🧪',name:'Loja de poções',cost:{},solid:true,noMenu:true}
+ alchemy:{e:'🧪',name:'Loja de poções',cost:{},solid:true,noMenu:true},
+ hipodromo:{e:'🏇',name:'Hipódromo',cost:{},noMenu:true} // v40 fase 9: tipo novo sempre no fim (o save guarda o tipo pela posição)
 };
 /* Móveis de dentro de casa */
 const ITEMS = {
@@ -7568,7 +7569,7 @@ function renderWorld(now){
   else if(!c.tree && c.regrow>0 && c.regrow<70 && !c.build) items.push({y:y+.9,k:1,x,cy:y});
   if(c.ore && c.ore!=='stone' && cellPx>=9) glints.push([x,y,c.ore]);
   if(c.build==='tower'){ items.push({y:y+.95,k:4,x,cy:y}); towersVis.push([x,y]); }
-  if(c.build==='castle' && c.anchor===y*state.w+x) items.push({y:y+2.97,k:6,x,cy:y});
+  if(c.build==='castle' && c.anchor===y*state.w+x && !(state.houses[c.anchor]&&state.houses[c.anchor].povo)) items.push({y:y+2.97,k:6,x,cy:y}); // v40: castelo com marca de povo é desenhado pela arte nova
  }
  for(const i of fires){ const x=i%state.w, y=(i/state.w)|0; if(x>=cx0&&x<=cx1&&y>=cy0&&y<=cy1) items.push({y:y+.7,k:2,x,cy:y}); }
  for(const a in state.houses){ const H=state.houses[a]; if(H.type!=='hut'||v27Std(H)) continue; const x=a%state.w, y=(a/state.w)|0; if(x<cx0-2||x>cx1+2||y<cy0-1||y>cy1+3) continue; items.push({y:y+.96,k:7,x,cy:y,H,a:+a}); } // v26: cabanas
@@ -10536,8 +10537,8 @@ function save(){
    if(e.w7) o.w7=e.w7; if(e.w8) o.w8=v28SaveW8(e.w8); if(e.nav29) o.nv=e.nav29; o.sm=Math.round(e.stam??100); if(e.eggPts) o.ep=+e.eggPts.toFixed(1); if(e.pinv) o.pi=e.pinv; if(e.ptools) o.pt=e.ptools; if(e.fedT) o.fd=Math.round(e.fedT);
    if(e.sp==='human'){ const z={}; if(e.fjob) z.fj=e.fjob; if(e.cart) z.ct=e.cart; if(e.bandit) z.bd=e.bandit; if(e.guild) z.gd=e.guild; if(e.elem) z.el=e.elem; if(e.dream) z.dm=e.dream; if(e.agro) z.ag=e.agro; if(e.craft) z.cf=e.craft; if(e.acad) z.ac=e.acad; if(e.gc) z.gc=e.gc; if(e.homeA!=null) z.hA=e.homeA; if(e.farmKid) z.fk=e.farmKid; if(e.famOf) z.fo=e.famOf; if(e.asale) z.as=e.asale; if(e.yc) z.yc=e.yc; if(e.fjLock) z.fl=1; if(e.staff) z.sf=1; if(e.gboss) z.gb=1; if(e.gsack) z.gs=e.gsack; if(e.nick) z.nk=e.nick; if(e.gman) z.gm=e.gman; if(e.gwork) z.gw=e.gwork; if(e.gjob) z.gj=e.gjob; if(e.gking) z.gk=e.gking; if(e.war) z.wr=e.war; if(e.wside) z.ws=e.wside; if(e.gpost) z.gp=e.gpost; if(Object.keys(z).length) o.z=z; }
    return o; });
-  const data={v:9,v27:state.v27||null,v28:state.v28||null,v29:state.v29||null,v18:state.v18||null,items:state.items.map(it=>({k:it.k,x:+it.x.toFixed(2),y:+it.y.toFixed(2),t:Math.round(it.t),o:it.owner||0,p:it.penned?1:0,kd:it.kd||0,vd:it.vd||0})),log:state.log,raids:state.raids,hw:state.roads||[],gd:state.guilds||[],wars:state.wars||[],wseq:state.warSeq||0,v22:state.v22||null,ngid:state.nextGid||1,w:state.w,h:state.h,worldName:state.worldName,time:state.time,inv:state.inv,tools:state.tools,nextId:state.nextId,nextVid:state.nextVid,playerId:state.playerId,
-   cz:v29PackCz(state.cells.map(packCell)),ents,houses:state.houses,villages:state.villages.map(v=>Object.assign({},v,{bad:{}}))};
+  const data={v:10,v27:state.v27||null,v28:state.v28||null,v29:state.v29||null,v18:state.v18||null,items:state.items.map(it=>({k:it.k,x:+it.x.toFixed(2),y:+it.y.toFixed(2),t:Math.round(it.t),o:it.owner||0,p:it.penned?1:0,kd:it.kd||0,vd:it.vd||0})),log:state.log,raids:state.raids,hw:state.roads||[],gd:state.guilds||[],wars:state.wars||[],wseq:state.warSeq||0,v22:state.v22||null,ngid:state.nextGid||1,w:state.w,h:state.h,worldName:state.worldName,time:state.time,inv:state.inv,tools:state.tools,nextId:state.nextId,nextVid:state.nextVid,playerId:state.playerId,
+   cz:v29PackCz(state.cells.map(packCell)),ents,houses:state.houses,villages:state.villages.map(v=>Object.assign({},v,{bad:{}})),e40:state.e40||null}; // v40: campo novo no fim
   const all=readSaves(); all[state.worldName]={data,when:new Date().toLocaleString('pt-BR')};
   localStorage.setItem(SAVE_KEY,JSON.stringify(all)); toast('Mundo salvo neste aparelho.'); renderSaves();
  }catch(e){ toast('Não foi possível salvar. Apague um mundo antigo ou use um mapa menor.'); }
@@ -10550,7 +10551,7 @@ function load(data){
  arrows=[]; floaters=[];
  state.items=(data.items||[]).map(it=>({k:it.k||'egg',x:it.x,y:it.y,t:it.t||0,owner:it.o||0,penned:!!it.p,kd:it.kd||0,vd:it.vd||0}));
  fireballs=[]; blasts=[]; state.aimDragon=null; jutsus=[]; rings=[]; groundFires=[]; elemReset();
- if(data.v>=2&&data.v<=9){
+ if(data.v>=2&&data.v<=10){ // v40: aceita o save v10
   state.cells=(data.cz?v29UnpackCz(data.cz):data.cells).map(a=>unpackCell(a,data.v===2));
   state.time=data.time||0; state.inv=Object.assign(emptyInv(),data.inv||{}); state.nextId=data.nextId||1; state.raids=data.raids||[]; state.roads=data.hw||[]; state.hwT=0; state.guilds=data.gd||[]; state.wars=data.wars||[]; state.warSeq=data.wseq||0; state.v22=data.v22||null; state.nextGid=data.ngid||1; state.w14T=0; state.v18=data.v18||null; state.v27=data.v27||null; state.v28=data.v28||null; state.v29=data.v29||null; rankT=-99;
   state.tools=Object.assign({axe:0,pick:0,sword:0,bow:0,arrows:0,armor:0,staff:0},data.tools||{});
@@ -24259,6 +24260,894 @@ try{ limites37(); }catch(err){}
   if(n.length||v.atrop39) $('infoLines').insertAdjacentHTML('beforeend',`<div><b>🚦 Trânsito:</b> ${n.length-c} carroça${n.length-c===1?'':'s'}${c?` e ${c} carro${c>1?'s':''}`:''} nas ruas${v.atrop39?` · 🚑 ${v.atrop39} atropelamento${v.atrop39>1?'s':''}`:''}</div>`); }catch(err){} }; }
 window.MVq39={anjoOrdem:t=>anjoOrdem(t),get q(){return q39;},qOrd39,qOrdem39,qTick39,tr39,trTick39,nasce39,becos39,rua39,atropela39,recurso39,inimigo39,get cellPx(){return cellPx;}};
 window.MVdbg={farmGrow,farmSz,farmSendOrder,farmExpTick,farmReorgCheck,miniPenPlace,buildMiniPen,mpenOf,farmHerd,farmPastors,farmPenOf,farmInPen,openFarm,farmCommand,bandCommand,guildCommand,dragonCommand,v17Tick,miniPenDaily,farmHireOne,farmOffer,farmAdults,cityGateSpot,landPrice,farmFence,farmChest,possess,clearRingFences,campSpot,villageAbandonTick,homeOf,annex,farmRect,farmPlan,farmBosses,farmNextBuild,farmRoles,hireGuards,guildTick,banditTick,farmWorldTick,academyTick,academySpot,studyThink,dreamOf,foundGuild,guildSpot,farmDoUp,cartThink,troughOf,penBuilt,penCap,farmMigrate,get farmEpoch(){return farmEpoch;},bumpFarm:()=>farmEpoch++,openVillage,openHouse,kingCommand,homeSpend,farmAbsorb,farmGrab,farmBuy,farmAnimals,farmStock,comfortOf,roomSize,animalPlayerAct,jobWant,hasPowers,castSpin,castBreath,powerHostile,highwayTick,hwRoute,get jutsus(){return jutsus;},farmRect,farmFence,farmShakedown,mercTick,hireMercFor,mercPrice,priceOf,addXP,load,save,isWildDragon,wildInit,dragonRevenge,dragonHuntTick,markAggressor,decideWar,borderDispute,gateLeft,gateMax,hitGate,chiefCape,raidOf,tameWildDragon,get WANTED(){return WANTED;},paint,doAction,computeTarget,killEnt,hurt,rebuildGrid,exitPlay,DRAGON,fireAt,hatchEgg,dragonEggEvents,groundOK,dStage,dAdult,get fireballs(){return fireballs;},get blasts(){return blasts;},onTap,stats:dbgStats,escapeTrap,setTask,clearBuild,villageById,npcState,patrolPoints,gateInside,hermitSpot,launchRaid,expandVillage,entSprite,ART,SPECIES,tapWorld:(x,y)=>onTap({x:(x-viewL)*cellPx,y:(y-viewT)*cellPx}),toScreen:(x,y)=>({x:(x-viewL)*cellPx,y:(y-viewT)*cellPx}),updateContext,feedPet,spawn,deathLog,petsOf,tameAnimal,villageTick,setBuild,enterHouse,exitHouse,nearHouseDoor,player,possess,findPath,passable,get inLay(){return inLay;}};
+/* =====================================================================
+   v40 · 40.1 · BASE VISUAL DAS CASAS POR POVO
+   Só desenho: casas com marca de povo (H.povo) usam a grade HOUSE_ART com a paleta
+   de PEOPLES; casas sem marca continuam com o desenho de antes.
+   Não muda packCell, save, versão do save nem a lógica de construção.
+   ===================================================================== */
+/* ===== v40 · HOUSE_ART · 12 desenhos (4 níveis × 3 variantes) ===== */
+const HOUSE_ART = {
+  cabana: [
+    [ // A · Sapê
+      "...rr...",
+      "..rrrr..",
+      ".rrrrrr.",
+      "rrrrrrrr",
+      "wwwkkwww",
+      "wwwkkwww"],
+    [ // B · Tenda de couro com aba
+      ".rrrrrr.",
+      "rrrrrrrr",
+      "rrrrkkrr",
+      "rrrrkkrr",
+      "gggggggg"],
+    [ // C · Toca com teto de grama
+      "........",
+      ".gggggg.",
+      "gggggggg",
+      "gwwkkwwg",
+      "gwwwwwwg",
+      "gggggggg"]
+  ],
+  casa: [
+    [ // A · Sobrado com janelas
+      "..rrrrrr..",
+      ".rrrrrrrr.",
+      "rrrrrrrrrr",
+      "wwwwwwwwww",
+      "wfwwwwwfww",
+      "wfwwwwwfww",
+      "wwwwkkwwww",
+      "wwwwkkwwww"],
+    [ // B · Casa com varanda
+      "...rrrr...",
+      "..rrrrrr..",
+      ".rrrrrrrr.",
+      "rrrrrrrrrr",
+      "wwwwwwwwww",
+      "wfwwwwfwww",
+      "pwwwwwwwwp",
+      "pwwkkwwwwp"],
+    [ // C · Casa com chaminé
+      ".....cc...",
+      "..rrrcrr..",
+      ".rrrrcrrr.",
+      "rrrrrrrrrr",
+      "wwwwwwwwww",
+      "wwfwwwfwww",
+      "wwwwwwwwww",
+      "wwwkkwwwww"]
+  ],
+  casarao: [
+    [ // A · Solar com torre
+      ".....tt.....",
+      "....tttt....",
+      "rrrrrrrrrrrr",
+      "rrrrrrrrrrrr",
+      "wwwwwwwwwwww",
+      "wfwwfwwfwwfw",
+      "wwwwwwwwwwww",
+      "wfwwfwwfwwfw",
+      "wwwwwkkwwwww",
+      "gggggkkggggg"],
+    [ // B · Galeria com colunas
+      "....rrrrrr..",
+      "..rrrrrrrrrr",
+      "rrrrrrrrrrrr",
+      "wwwwwwwwwwww",
+      "wfwfwfwfwfwf",
+      "wwwwwwwwwwww",
+      "pwwwpwwwpwwp",
+      "pwwwpwwwpwwp",
+      "pwwwpwkkpwwp",
+      "gggggggggggg"],
+    [ // C · Solar com cúpula
+      ".....oo.....",
+      "....oooo....",
+      "...rrrrrr...",
+      "rrrrrrrrrrrr",
+      "wwwwwwwwwwww",
+      "wfwwfwwfwwfw",
+      "wwwwwwwwwwww",
+      "wwfwwwwwwfww",
+      "wwwwwkkwwwww",
+      "gggggkkggggg"]
+  ],
+  castelo: [
+    [ // A · Torre de menagem
+      ".....tt.......",
+      "....tttt......",
+      "gmgmgmgmgmgmgm",
+      "gggggggggggggg",
+      "gwwwwwwwwwwwwg",
+      "gwfwwfwwfwwfwg",
+      "gwwwwwwwwwwwwg",
+      "gwwwwwwwwwwwwg",
+      "gwwwwwkkwwwwwg",
+      "gggggggggggggg"],
+    [ // B · Fortaleza com quatro torreões
+      "tt..........tt",
+      "ttggggggggggtt",
+      "ggwwwwwwwwwwgg",
+      "ggwfwwwwwwfwgg",
+      "gggwwwwwwwwggg",
+      "gggwwwwwwwwggg",
+      "ggggggkkgggggg",
+      "ggggggkkgggggg"],
+    [ // C · Palácio com cúpulas
+      "...oo....oo...",
+      "..oooo..oooo..",
+      "....rrrrrr....",
+      "rrrrrrrrrrrrrr",
+      "wwwwwwwwwwwwww",
+      "wfwfwfwfwfwfwf",
+      "wwwwwwwwwwwwww",
+      "gwfwwfwwfwwfwg",
+      "gwwwwwwkkwwwwg",
+      "ggggggkkgggggg"]
+  ]
+};
+
+/* ===== v40 · PEOPLES · paletas e marcas ===== */
+const PEOPLES = {
+  ingles: {
+    name: "Inglês", era: "Vila",
+    levels: ["Cabana", "Casa", "Casarão", "Castelo"],
+    pal: { r:"#7a4a2b", t:"#5a3420", o:"#7a8fa6", c:"#6b5040", w:"#c9a77a", g:"#8a8478", f:"#ffe08a", k:"#3a2414", p:"#4a3020", m:"#8a8478", a:"#e8b84a" },
+    mark: "viga em X (faixa de cor a) no meio da fachada"
+  },
+  cigano: {
+    name: "Cigano", era: "Vila",
+    levels: ["Tenda", "Casa de lona", "Casarão de feira", "Fortaleza do clã"],
+    pal: { r:"#2f6b5a", t:"#1f4a3e", o:"#c0392b", c:"#5b4636", w:"#b5563a", g:"#7a6a58", f:"#ffd27a", k:"#2a1a14", p:"#8a4a2a", m:"#7a6a58", a:"#e0a526" },
+    mark: "franjas e bandeirolas triangulares (a) na cumeeira e na porta"
+  },
+  judeu: {
+    name: "Judeu", era: "Vila",
+    levels: ["Abrigo", "Casa de pedra", "Casarão com sinagoga", "Castelo da comunidade"],
+    pal: { r:"#4a5a8a", t:"#34406a", o:"#f2f2ea", c:"#6a6a70", w:"#d8cfbf", g:"#a8a090", f:"#fff3c4", k:"#3a3028", p:"#b8ad98", m:"#a8a090", a:"#2f5fa8" },
+    mark: "mezuzá (retângulo 1x3 em a) ao lado da porta; janela em arco"
+  },
+  russo: {
+    name: "Russo", era: "Vila",
+    levels: ["Izba", "Casa de toras", "Casarão de cúpula", "Kremlin local"],
+    pal: { r:"#3b5563", t:"#2a3f4a", o:"#2f7fc0", c:"#5a3a26", w:"#8b5a3c", g:"#6e6a62", f:"#ffe9a8", k:"#3a2010", p:"#6a4026", m:"#6e6a62", a:"#d94b4b" },
+    mark: "cúpula bulbosa (o, cor a) sobre a cumeeira; platibanda entalhada"
+  },
+  brasileiro: {
+    name: "Brasileiro", era: "Vila",
+    levels: ["Choupana", "Casa de cal", "Casarão colonial", "Sobrado da fazenda"],
+    pal: { r:"#b5532d", t:"#8a3e20", o:"#e7d9b8", c:"#7a5a40", w:"#e7d9b8", g:"#9a8a70", f:"#5a8ac0", k:"#4a3020", p:"#7a5030", m:"#9a8a70", a:"#3ea35a" },
+    mark: "faixa de azulejo (a) na base e varanda de madeira"
+  },
+  americano: {
+    name: "Americano", era: "Reino",
+    levels: ["Shack", "Frame house", "Mansão", "Forte"],
+    pal: { r:"#5a5a64", t:"#3e3e48", o:"#9aa8b8", c:"#8a3a2a", w:"#a86b3e", g:"#7a7a72", f:"#fff0c0", k:"#2a2a30", p:"#eaeaea", m:"#7a7a72", a:"#3a6ea5" },
+    mark: "alpendre (p, branco) na frente e chaminé de tijolo (c)"
+  }
+};
+
+/* tipo da casa no jogo → nível da arte */
+const ART_LEVEL = {hut:'cabana', house:'casa', manor:'casarao', castle:'castelo'};
+const ART_LEVELS = ['cabana','casa','casarao','castelo'];
+/* tamanho do "pixel" da grade em cada nível (sprite em 24 px por quadrado, como as casas da v27) */
+const ART_K = {cabana:4, casa:5, casarao:6, castelo:5};
+const ART_TOP = 4; // espaço em cima (em unidades) para cúpula, chaminé e bandeirolas
+const artVariant = a => (((a%state.w)*31 + ((a/state.w)|0)*17) % 3);
+const artPovo = H => (H && H.povo && PEOPLES[H.povo] && ART_LEVEL[H.type]) ? H.povo : null;
+
+/* medidas da grade (fachada, porta, telhado), calculadas uma vez */
+const artGeoCache = new Map();
+function artGeo(grid){
+ let G=artGeoCache.get(grid); if(G) return G;
+ const W=grid[0].length, H=grid.length; G={W,H,wallTop:-1,wallBot:-1,roofTop:-1,roofBot:-1,doorL:-1,doorR:-1,doorTop:-1,wins:[]};
+ for(let y=0;y<H;y++) for(let x=0;x<W;x++){ const ch=grid[y][x];
+  if(ch==='w'){ if(G.wallTop<0) G.wallTop=y; G.wallBot=y; }
+  if(ch==='r'||ch==='t'||ch==='o'){ if(G.roofTop<0) G.roofTop=y; if(ch==='r') G.roofBot=y; }
+  if(ch==='k'){ if(G.doorL<0||x<G.doorL) G.doorL=x; if(x>G.doorR) G.doorR=x; if(G.doorTop<0) G.doorTop=y; }
+  if(ch==='f'&&(y===0||grid[y-1][x]!=='f')) G.wins.push([x,y]); }
+ if(G.wallTop<0){ G.wallTop=Math.max(0,G.doorTop); G.wallBot=H-1; } // tenda: sem parede, a "fachada" é a lona
+ if(G.roofTop<0) G.roofTop=0;
+ if(G.roofBot<0) G.roofBot=Math.max(0,G.wallTop-1);
+ if(G.doorL<0){ G.doorL=G.doorR=W>>1; G.doorTop=H-1; }
+ artGeoCache.set(grid,G); return G;
+}
+
+/* desenha uma casa da grade: g = contexto, sx/sy = canto de cima da grade, k = tamanho do pixel */
+function drawHouseArt(g, level, variant, people, sx, sy, k){
+ const grid=HOUSE_ART[level][variant], P=PEOPLES[people], pal=P.pal, G=artGeo(grid);
+ const F=(x,y,w,h,c)=>{ if(!c||w<=0||h<=0) return; g.fillStyle=c; g.fillRect(Math.round(sx+x*k),Math.round(sy+y*k),Math.max(1,Math.round(w*k)),Math.max(1,Math.round(h*k))); };
+ for(let y=0;y<G.H;y++) for(let x=0;x<G.W;x++){ const ch=grid[y][x]; if(ch!=='.') F(x,y,1,1,pal[ch]); }
+ // sombreado leve: luz na primeira linha do telhado e sombra embaixo do beiral
+ for(let x=0;x<G.W;x++){ const ch=grid[G.roofTop][x]; if(ch==='r'||ch==='t'||ch==='o') F(x,G.roofTop,1,.2,shade(pal[ch],.25)); }
+ if(G.wallTop>0) for(let x=0;x<G.W;x++) if(grid[G.wallTop][x]==='w') F(x,G.wallTop,1,.2,shade(pal.w,-.25));
+ for(let y=0;y<G.H;y++) for(let x=0;x<G.W;x++) if(grid[y][x]==='f'){ F(x+.42,y,.16,1,shade(pal.f,-.35)); }
+ artMark(F, grid, G, people, pal);
+}
+
+/* a marca de cada povo, desenhada por cima da grade */
+function artMark(F, grid, G, people, pal){
+ const a=pal.a, W=G.W, mid=W/2;
+ if(people==='ingles'){ // viga em X no meio da fachada (enxaimel)
+  const y0=G.wallTop, y1=Math.max(G.wallTop+1, G.doorTop>G.wallTop?G.doorTop:G.wallBot), n=Math.max(1,y1-y0), x0=Math.max(0,Math.floor(mid-n/2-.5)), wd=n;
+  for(let i=0;i<=n*4;i++){ const t=i/(n*4); F(x0+t*wd-.1,y0+t*n,.3,.3,a); F(x0+wd-t*wd-.2,y0+t*n,.3,.3,a); }
+  F(0,y0,W,.18,shade(a,-.2)); F(0,y1,W,.18,shade(a,-.2));
+ } else if(people==='cigano'){ // bandeirolas na cumeeira e franja sobre a porta
+  const ry=G.roofTop; let x0=W, x1=0; for(let x=0;x<W;x++){ const ch=grid[ry][x]; if(ch!=='.'){ x0=Math.min(x0,x); x1=Math.max(x1,x); } }
+  F(x0-1,ry-.25,x1-x0+3,.12,'#3a2a1a');
+  for(let x=x0-1,i=0;x<=x1+1;x+=.75,i++){ const c=i%2?pal.o:a; F(x,ry-.15,.6,.25,c); F(x+.12,ry+.1,.36,.25,c); F(x+.24,ry+.35,.12,.2,c); }
+  for(let x=G.doorL-.5,i=0;x<=G.doorR+1;x+=.5,i++) F(x,G.doorTop-.3,.4,i%2?.5:.35,i%2?pal.o:a);
+ } else if(people==='judeu'){ // mezuzá ao lado da porta e janelas em arco
+  F(G.doorR+1.2,G.doorTop+.15,.3,.9,a); F(G.doorR+1.2,G.doorTop+.15,.3,.12,shade(a,.4));
+  for(const [x,y] of G.wins){ F(x,y,.25,.25,pal.w); F(x+.75,y,.25,.25,pal.w); F(x+.25,y-.12,.5,.12,shade(pal.w,-.2)); }
+  F(G.doorL,G.doorTop,.2,.2,pal.w); F(G.doorR+.8,G.doorTop,.2,.2,pal.w);
+ } else if(people==='russo'){ // cúpula bulbosa vermelha sobre a cumeeira e platibanda entalhada
+  const ry=G.roofTop, cx=mid; F(cx-.75,ry-1.2,1.5,.9,a); F(cx-.5,ry-1.55,1,.4,a); F(cx-.25,ry-1.9,.5,.4,a); F(cx-.06,ry-2.6,.12,.75,'#e8c84a'); F(cx-.3,ry-2.35,.6,.1,'#e8c84a');
+  F(cx-.4,ry-.35,.8,.4,shade(a,-.3)); F(cx-.6,ry-1.1,.3,.5,shade(a,.3));
+  const by=G.roofBot+1; for(let x=0;x<W;x++){ if(grid[Math.min(G.H-1,by)][x]==='.') continue; F(x,by,1,.15,a); F(x+.35,by+.15,.3,.2,a); }
+ } else if(people==='brasileiro'){ // barra de azulejo na base e varanda de madeira
+  const y=G.wallBot; for(let x=0;x<W;x++){ if(grid[y][x]!=='w') continue; F(x,y+.55,1,.45,pal.o); F(x+((x%2)?0:.5),y+.55,.5,.22,a); F(x+((x%2)?.5:0),y+.77,.5,.23,a); }
+  const vy=Math.max(G.wallTop,G.doorTop-.25); F(-.2,vy,W+.4,.22,pal.p); F(-.2,vy+.22,W+.4,.08,shade(pal.p,-.3));
+  F(0,vy,.25,G.H-vy,pal.p); F(W-.25,vy,.25,G.H-vy,pal.p); if(W>=10){ F(G.doorL-1.2,vy,.22,G.H-vy,pal.p); F(G.doorR+1,vy,.22,G.H-vy,pal.p); }
+ } else if(people==='americano'){ // alpendre branco na frente e chaminé de tijolo
+  const py=Math.max(G.wallTop,G.doorTop-.35); F(-.3,py,W+.6,.3,pal.p); F(-.3,G.H-.25,W+.6,.25,pal.p);
+  for(let x=-.3;x<=W;x+=Math.max(1.5,W/5)) F(x,py,.22,G.H-py,pal.p);
+  for(let x=0;x<W;x+=.5) if(x<G.doorL-.2||x>G.doorR+1) F(x,G.H-.85,.12,.6,pal.p);
+  const cxh=W-2.2, cy=G.roofTop; F(cxh,cy-1.6,.9,1.8,pal.c); for(let i=0;i<4;i++) F(cxh+(i%2?0:.45),cy-1.5+i*.45,.45,.06,shade(pal.c,-.35)); F(cxh-.1,cy-1.7,1.1,.2,shade(pal.c,-.25));
+ }
+}
+
+/* sprite pronto (24 px por quadrado), com cache */
+const artSpriteCache = new Map();
+function houseArtSprite(level, variant, people, col){
+ const key=level+'|'+variant+'|'+people+'|'+(col||''); let cv=artSpriteCache.get(key); if(cv) return cv;
+ const grid=HOUSE_ART[level][variant], k=ART_K[level], W=grid[0].length, H=grid.length;
+ cv=mk(Math.round((W+1)*k), Math.round((H+ART_TOP)*k)); const g=cv.getContext('2d');
+ drawHouseArt(g, level, variant, people, k*.5, ART_TOP*k, k);
+ if(col){ g.fillStyle=col; g.fillRect(Math.round(cv.width-k*1.1),Math.round((ART_TOP+H-1)*k),Math.max(2,Math.round(k*.5)),Math.round(k*.8)); } // cor da vila (como nas outras casas)
+ cv=hqUp(cv,true); artSpriteCache.set(key,cv); return cv;
+}
+function artDraw(a,H){
+ const povo=artPovo(H); if(!povo) return false;
+ const ow=villageById(state.cells[a].owner), lvl=ART_LEVEL[H.type], img=houseArtSprite(lvl,artVariant(a),povo,ow?SHIRTS[ow.color]:null);
+ const S=BUILDS[H.type].size||1, x=a%state.w, y=(a/state.w)|0, fit=Math.min(1,S*24*1.15/img.lw), kk=cellPx/24*fit, w=img.lw*kk, h=img.lh*kk;
+ const sx=(x+S/2-viewL)*cellPx, sy=(y+S-viewT)*cellPx;
+ ctx.drawImage(hi4(img,kk),sx-w/2,sy-h,w,h); H._scr=[sx,sy,w,h]; return true;
+}
+/* cabana, casa e casarão: a v27 já desenha em pé, com profundidade → troca só o desenho */
+{ const _dh=v27DrawHouse; v27DrawHouse=function(a,H){ try{ if(artDraw(a,H)) return; }catch(err){ v31Err(err); } return _dh.apply(this,arguments); }; }
+/* castelo com marca: entra na mesma lista de profundidade (o castelo antigo é pulado no desenho do mapa) */
+{ const _vi=v27Items; v27Items=function(items,cx0,cx1,cy0,cy1,now){ _vi.apply(this,arguments);
+  try{ for(const as in state.houses){ const H=state.houses[as]; if(H.type!=='castle'||!artPovo(H)) continue; const a=+as, x=a%state.w, y=(a/state.w)|0;
+    if(x<cx0-4||x>cx1+4||y<cy0-4||y>cy1+4) continue; items.push({y:y+2.97,k:9,draw:()=>artDraw(a,H)}); } }catch(err){ v31Err(err); } }; }
+/* no chão (mapa de terreno): casa/casarão com marca ficam só com o piso, sem fachada antiga por baixo */
+{ const _dh=drawHouse; drawHouse=function(a){ const H=state.houses[a];
+  if(artPovo(H)&&H.type!=='hut'&&H.type!=='castle'){ const g=tctx, S=BUILDS[H.type].size||1, x=(a%state.w)*T, y=((a/state.w)|0)*T;
+   g.fillStyle='#8a7350'; g.fillRect(x,y,S*T,S*T); g.fillStyle='#9a835e'; for(let i=0;i<S*T;i+=4) g.fillRect(x+(i*7)%(S*T),y+i,2,1); g.fillStyle='#6e5a3c'; g.fillRect(x,y+S*T-1,S*T,1); return; }
+  return _dh(a); }; }
+
+/* ---------- testes (console): MV40.marcar(a,'russo') e MV40.vitrine() ---------- */
+window.MV40 = {
+ HOUSE_ART, PEOPLES, drawHouseArt, houseArtSprite, artVariant,
+ marcar(a, povo){ const H=state.houses[a]; if(!H||!ART_LEVEL[H.type]) return false; if(povo) H.povo=povo; else delete H.povo; markAround(a%state.w,(a/state.w)|0,BUILDS[H.type].size||1); fullRedraw=true; return true; },
+ /* põe as 72 combinações (6 povos × 4 níveis × 3 variantes) numa área do mapa. SÓ PARA TESTE: apaga o que estiver lá. */
+ vitrine(x0=4, y0=4){
+  const povos=Object.keys(PEOPLES), tipos=['hut','house','manor','castle'], feitos=[];
+  povos.forEach((povo,row)=>{ let cx=x0; const y=y0+row*5;
+   for(const tipo of tipos) for(let v=0;v<3;v++){
+    let x=cx; while(((x*31+y*17)%3)!==v) x++;
+    const S=BUILDS[tipo].size||1; if(x+S>=state.w||y+S>=state.h) continue;
+    for(let yy=y;yy<y+S;yy++) for(let xx=x;xx<x+S;xx++){ const c=cell(xx,yy); if(c.build) clearBuild(xx,yy); Object.assign(c,{water:0,tree:null,ore:null,terrain:'fertile',reg:0}); }
+    setBuild(x,y,tipo,0); const a=idx(x,y); state.houses[a].povo=povo; feitos.push([povo,tipo,v,x,y]); cx=x+S+1; } });
+  fullRedraw=true; return feitos;
+ }
+};
+
+/* =====================================================================
+   v40 · FASES 1 a 5 · POVOS NAS CIDADES, SAVE v10, DADOS DE ETNIA,
+   9 NÍVEIS SOCIAIS E BAIRROS
+   Regras: nenhum povo tem traço negativo próprio; traços (intolerante,
+   aceita mistura) são de cada pessoa, sorteados igual para todos os povos.
+   Ninguém é expulso; o rei só decide quem entra e como são os bairros.
+   ===================================================================== */
+/* ---------- FASE 3 · modelo de dados (só dados: ativar o slot 5 = trocar ativa para true) ---------- */
+const ETNIAS = [
+ {id:'ingles', nome:'Ingleses', ativa:true, povo:'ingles', paleta:PEOPLES.ingles.pal, marca:PEOPLES.ingles.mark,
+  roupas:{base:'#6b4f3a', nivel_pobre:'#6b5a48', nivel_medio:'#355c3a', nivel_rico:'#7a2e2e'}, layout:'muralha',
+  ritual:'Culto de domingo na igreja', diferencial:'Mercado semanal na praça', construcoes_proprias:['igreja'],
+  nomes:{M:['John','William','Thomas','Henry','Edward','Richard','George','Arthur'],F:['Mary','Alice','Elizabeth','Margaret','Anne','Emma','Jane','Catherine']}},
+ {id:'romani', nome:'Ciganos (Romani)', ativa:true, povo:'cigano', paleta:PEOPLES.cigano.pal, marca:PEOPLES.cigano.mark,
+  roupas:{base:'#a8324a', nivel_pobre:'#8a4a2a', nivel_medio:'#2f6a8a', nivel_rico:'#e0a526'}, layout:'roda',
+  ritual:'Círculo de fogueira com música', diferencial:'Ferreiros, músicos e criadores de cavalos', construcoes_proprias:['circulo_fogueira'],
+  nomes:{M:['Django','Mihai','Stefan','Luca','Marko','Nicolae','Tobar','Emil'],F:['Mirela','Esmeralda','Lavinia','Rada','Sara','Florina','Zora','Ilona']}},
+ {id:'judeu', nome:'Judeus', ativa:true, povo:'judeu', paleta:PEOPLES.judeu.pal, marca:PEOPLES.judeu.mark,
+  roupas:{base:'#2a2f3a', nivel_pobre:'#4a3a5a', nivel_medio:'#34406a', nivel_rico:'#e6e0d0'}, layout:'compacto',
+  ritual:'Shabat semanal e festas do ano', diferencial:'Estudo e ajuda mútua', construcoes_proprias:['sinagoga','casa_estudo'],
+  nomes:{M:['David','Isaac','Samuel','Jacob','Daniel','Aaron','Levi','Benjamin'],F:['Sara','Raquel','Lea','Rebeca','Miriam','Ester','Ana','Judite']}},
+ {id:'brasileiro', nome:'Brasileiros', ativa:true, povo:'brasileiro', paleta:PEOPLES.brasileiro.pal, marca:PEOPLES.brasileiro.mark,
+  roupas:{base:'#2f8a5a', nivel_pobre:'#7a5a40', nivel_medio:'#3a6ac8', nivel_rico:'#e8c84a'}, layout:'aberto',
+  ritual:'Festas de santo e de roda', diferencial:'Mutirão e acolhida', construcoes_proprias:['igreja_barroca','feira'],
+  nomes:{M:['João','Pedro','Lucas','Bento','Caio','Davi','Heitor','Tiago'],F:['Ana','Maria','Júlia','Clara','Helena','Rosa','Marina','Cecília']}},
+ /* slot 5: reservado (russos ou americanos). Para ativar: ativa:true (e trocar povo para 'americano' se quiser americanos) */
+ {id:'slot5', nome:'Russos', ativa:false, povo:'russo', paleta:PEOPLES.russo.pal, marca:PEOPLES.russo.mark,
+  roupas:{base:'#8a2a2a', nivel_pobre:'#6a4026', nivel_medio:'#3a4a6a', nivel_rico:'#e6e0d0'}, layout:'aberto',
+  ritual:'', diferencial:'', construcoes_proprias:[],
+  nomes:{M:['Ivan','Pavel','Dmitri','Mikhail','Alexei','Sergei','Yuri','Boris'],F:['Olga','Anna','Irina','Natalia','Sofia','Vera','Tatiana','Elena']}}
+];
+const etniaById = id => ETNIAS.find(t=>t.id===id) || ETNIAS[0];
+const etniasAtivas = () => ETNIAS.filter(t=>t.ativa);
+const E40 = {MOEDA_VALOR:10, VENDA_CASA:.7, HISTERESE:.1, TICK:1, VILAS_POR_TICK:2};
+const e40 = () => (state.e40 ||= {ver:1});
+const P40 = e => (e.w7 && e.w7.e40) || null;                      // dados da pessoa
+const etDe = e => (P40(e)||{}).et || 'ingles';
+
+/* ---------- FASE 1 · atribuir povo a pessoas, vilas e casas ---------- */
+const TOL = ['intolerante','aceita','neutro'];
+function sorteiaTol(){ const r=Math.random(); return r<.2?'intolerante':r<.6?'aceita':'neutro'; } // igual para todos os povos
+function daPovo(e, et){ W7(e).e40 = {et, tol:sorteiaTol()}; }
+/* mundo novo: povos por região do mapa (vizinhos tendem a ser do mesmo povo) */
+function povosDoMundo(){
+ const at=etniasAtivas(); if(!at.length) return;
+ const H=state.ents.filter(e=>e.sp==='human'); if(!H.length) return;
+ // sementes bem espalhadas: cada povo começa num grupo de gente diferente (quem está junto fica do mesmo povo)
+ const pts=[H[(Math.random()*H.length)|0]];
+ while(pts.length<at.length){ let best=null, bd=-1; for(const e of H){ const d=Math.min(...pts.map(p=>Math.hypot(p.x-e.x,p.y-e.y))); if(d>bd&&!pts.includes(e)){ bd=d; best=e; } } if(!best) break; pts.push(best); } // poucos grupos: o casal pode ficar misto
+ const ord=at.slice().sort(()=>Math.random()-.5), seeds=pts.map((p,i)=>({t:ord[i],x:p.x,y:p.y,e:p}));
+ for(const e of H){ let best=seeds[0], bd=1e9; for(const s of seeds){ const d=Math.hypot(e.x-s.x,e.y-s.y); if(d<bd){ bd=d; best=s; } }
+  if(seeds.some(s=>s.e===e)) best=seeds.find(s=>s.e===e);
+  daPovo(e,best.t.id); const N=best.t.nomes&&best.t.nomes[e.sex]; if(N&&N.length) e.name=N[(Math.random()*N.length)|0]; }
+}
+const pend40 = [];
+{ const _sp=spawn; spawn=function(sp){ const e=_sp.apply(this,arguments); if(e&&sp==='human') pend40.push(e); return e; }; }
+function povoNascido(e){
+ if(P40(e)) return;
+ const ps=(e.parents||[]).map(id=>byId.get(id)).filter(Boolean);
+ if(ps.length){ daPovo(e, etDe(ps[(Math.random()*ps.length)|0])); return; }        // filho: povo do pai ou da mãe (50/50)
+ const v=e.vid?villageById(e.vid):null;
+ if(v&&v.e40){ daPovo(e, v.e40.et); return; }
+ let best=null, bd=1e9; for(const o of state.villages){ if(!o.e40) continue; const d=Math.hypot(o.cx-e.x,o.cy-e.y); if(d<bd){ bd=d; best=o; } }
+ const at=etniasAtivas(); daPovo(e, best?best.e40.et:(at[(Math.random()*at.length)|0]||ETNIAS[0]).id);
+}
+{ const _gw=generateWorld; generateWorld=function(){ pend40.length=0; state.e40=null; const r=_gw.apply(this,arguments); try{ e40(); povosDoMundo(); }catch(err){ v31Err(err); } return r; }; }
+/* vila nova: povo do rei */
+{ const _fv=foundVillage; foundVillage=function(a,b){ const n=state.villages.length, r=_fv.apply(this,arguments);
+  try{ if(r&&state.villages.length>n){ const v=state.villages[state.villages.length-1], k=byId.get(v.king); if(k) povoNascido(k); v.e40={et:k?etDe(k):'ingles', bairros:null}; bairros40(v); } }catch(err){ v31Err(err); }
+  return r; }; }
+/* casa nova de uma vila: recebe o povo do bairro onde fica */
+{ const _sb=setBuild; setBuild=function(x,y,type,owner){ _sb.apply(this,arguments);
+  try{ const a=idx(x,y), H=state.houses[a], v=owner?villageById(owner):null;
+   if(H&&ART_LEVEL[type]&&v&&v.e40&&!H.povo){ const et=etDoBairro(v,x,y); H.et=et; H.povo=etniaById(et).povo; } }catch(err){ v31Err(err); } }; }
+
+/* ---------- FASE 4 · 9 níveis sociais (dinheiro da família → nível → tipo visual) ---------- */
+const NIVEIS = [null,
+ {n:'Pobre baixa', min:0,     tipo:'cabana'}, {n:'Pobre média', min:100,  tipo:'cabana'}, {n:'Pobre alta', min:250,  tipo:'casa'},
+ {n:'Média baixa', min:500,   tipo:'casa'},   {n:'Média média', min:1000, tipo:'casa'},   {n:'Média alta', min:2000, tipo:'casarao'},
+ {n:'Rica baixa',  min:4000,  tipo:'casarao'},{n:'Rica média',  min:8000, tipo:'casarao'},{n:'Rica alta',  min:15000,tipo:'castelo'}];
+/* preço de subir para um tipo visual maior (em dinheiro); ao descer, a família vende e recebe VENDA_CASA (70%) */
+const PRECO_TIPO = {cabana:0, casa:120, casarao:1200, castelo:8000};
+const nivelPorDinheiro = d => { let n=1; for(let i=9;i>=1;i--) if(d>=NIVEIS[i].min){ n=i; break; } return n; };
+function moradores40(v){ const M=new Map(); for(const e of members(v)){ if(!isAdultH(e)) continue; const a=homeOf(e,v); if(a<0||!state.houses[a]) continue; if(!M.has(a)) M.set(a,[]); M.get(a).push(e); } return M; }
+const dinheiroFam = fam => fam.reduce((s,e)=>s+(e.coins||0),0)*E40.MOEDA_VALOR;
+function pagaFam(fam, dinheiro){ let resta=dinheiro/E40.MOEDA_VALOR; const tot=fam.reduce((s,e)=>s+(e.coins||0),0)||1;
+ for(const e of fam){ const p=Math.min(e.coins||0, resta*((e.coins||0)/tot)); e.coins=(e.coins||0)-p; } }
+function recebeFam(fam, dinheiro){ const c=dinheiro/E40.MOEDA_VALOR/fam.length; for(const e of fam) e.coins=(e.coins||0)+c; }
+function nivelTick(H, fam){
+ const d=dinheiroFam(fam);
+ if(!H.n40){ H.n40=nivelPorDinheiro(d); return 0; }            // primeira vez (e saves antigos): calcula pelo dinheiro
+ let mud=0, n=H.n40;
+ // sobe: alcança o mínimo do nível de cima; se o tipo visual aumenta, precisa ter também o preço (e paga)
+ while(n<9){ const prox=NIVEIS[n+1], troca=prox.tipo!==NIVEIS[n].tipo, preco=troca?PRECO_TIPO[prox.tipo]:0;
+  if(dinheiroFam(fam)>=prox.min+preco){ if(preco) pagaFam(fam,preco); n++; mud=1; } else break; }
+ // desce: só abaixo do mínimo menos 10% (histerese); se o tipo visual diminui, vende e recebe 70%
+ while(n>1 && dinheiroFam(fam) < NIVEIS[n].min*(1-E40.HISTERESE)){ const ant=NIVEIS[n-1], troca=ant.tipo!==NIVEIS[n].tipo;
+  if(troca) recebeFam(fam, PRECO_TIPO[NIVEIS[n].tipo]*E40.VENDA_CASA); n--; mud=-1; }
+ if(n!==H.n40){ const tipoAnt=NIVEIS[H.n40].tipo; H.n40=n; H.nT=(H.nT||0)+1; if(NIVEIS[n].tipo!==tipoAnt) H._art=1; }
+ return mud;
+}
+/* a arte da casa segue o tipo visual do nível (casas marcadas) */
+{ const _ad=artDraw; artDraw=function(a,H){ if(!artPovo(H)||!H.n40) return _ad(a,H);
+  const T0=H.type, lv=NIVEIS[H.n40].tipo;
+  const ow=villageById(state.cells[a].owner), img=houseArtSprite(lv,artVariant(a),H.povo,ow?SHIRTS[ow.color]:null);
+  const S=BUILDS[T0].size||1, x=a%state.w, y=(a/state.w)|0, fit=Math.min(1,S*24*1.5/img.lw), kk=cellPx/24*fit, w=img.lw*kk, h=img.lh*kk;
+  const sx=(x+S/2-viewL)*cellPx, sy=(y+S-viewT)*cellPx; ctx.drawImage(hi4(img,kk),sx-w/2,sy-h,w,h); H._scr=[sx,sy,w,h]; return true; }; }
+/* a v27 também cobra moedas para melhorar casas: nas casas marcadas quem manda é a v40 (não cobra duas vezes) */
+{ const _hd=v27HouseDaily; v27HouseDaily=function(){ const snap=[];
+  try{ for(const v of state.villages){ if(!v.e40) continue; for(const [a,fam] of moradores40(v)){ const H=state.houses[a]; if(H&&H.povo) snap.push([H,H.cls,fam.map(e=>[e,e.coins])]); } } }catch(err){ v31Err(err); }
+  const r=_hd.apply(this,arguments);
+  for(const [H,c,cs] of snap){ H.cls=c; for(const [e,m] of cs) e.coins=m; }
+  return r; }; }
+
+/* ---------- FASE 5 · regra do rei e bairros ---------- */
+function reiTol(v){ const k=byId.get(v.king); const p=k&&P40(k); return p?p.tol:'neutro'; }
+function bairros40(v){
+ if(!v.e40) return; const k=byId.get(v.king), etRei=k?etDe(k):v.e40.et, tol=reiTol(v);
+ const cont={}; for(const e of members(v)) cont[etDe(e)]=(cont[etDe(e)]||0)+1;
+ const ord=Object.entries(cont).sort((a,b)=>b[1]-a[1]);
+ let B;
+ if(tol==='intolerante'||!ord.length) B=[{et:etRei,p:1}];                                   // intolerante vence histórico misto
+ else if(tol==='aceita') B=ord.map(([et,n])=>({et,p:n}));                                    // um bairro por povo
+ else { B=[{et:ord[0][0],p:3}]; if(ord[1]) B.push({et:ord[1][0],p:1}); }                     // dominante + minoria menor
+ const tot=B.reduce((s,b)=>s+b.p,0); let a0=-Math.PI;
+ v.e40.bairros=B.map(b=>{ const a1=a0+2*Math.PI*b.p/tot, r={et:b.et,a0,a1,layout:etniaById(b.et).layout}; a0=a1; return r; });
+ v.e40.et=v.e40.bairros[0].et===etRei||tol==='intolerante'?etRei:v.e40.bairros[0].et;
+ v.e40.tol=tol;
+ if(tol==='intolerante'){ const ep=etniaById(etRei).povo;                                  // a cidade inteira fica com a cara do povo do rei
+  for(const as in state.houses){ const a=+as, H=state.houses[a]; if(H&&H.povo&&H.et!==etRei&&state.cells[a].owner===v.id){ H.et=etRei; H.povo=ep; markAround(a%state.w,(a/state.w)|0,BUILDS[H.type].size||1); } } }
+}
+function etDoBairro(v,x,y){ const B=v.e40&&v.e40.bairros; if(!B||!B.length) return v.e40?v.e40.et:'ingles';
+ const ang=Math.atan2(y-v.cy,x-v.cx); for(const b of B) if(ang>=b.a0&&ang<b.a1) return b.et; return B[B.length-1].et; }
+/* rei intolerante não aceita gente de outro povo morando na vila (ninguém é expulso; quem já mora fica) */
+{ const _pu=pairUp; pairUp=function(a,b){
+  try{ for(const h of [a,b]){ const v=h.vid?villageById(h.vid):null; if(!v||!v.e40||reiTol(v)!=='intolerante') continue;
+    const etRei=etDe(byId.get(v.king)||h), outro=h===a?b:a; if(outro.vid!==v.id&&etDe(outro)!==etRei){ return false; } } }catch(err){ v31Err(err); }
+  return _pu.apply(this,arguments); }; }
+
+/* ---------- tick lento: 1 s de jogo, poucas vilas por vez ---------- */
+let t40=0, rr40=0;
+function e40Tick(){
+ for(const e of pend40.splice(0)) if(e.hp>0) povoNascido(e);
+ const V=state.villages; if(!V.length) return;
+ for(let i=0;i<Math.min(E40.VILAS_POR_TICK,V.length);i++){ const v=V[(rr40++)%V.length]; if(!v||!v.e40) continue;
+  bairros40(v);
+  for(const [a,fam] of moradores40(v)){ const H=state.houses[a]; if(!H) continue; if(nivelTick(H,fam)&&H._art){ H._art=0; markAround(a%state.w,(a/state.w)|0,BUILDS[H.type].size||1); } } }
+}
+{ const _uw=updateWorld; updateWorld=function(dt){ _uw(dt); t40+=dt; if(t40>=E40.TICK){ t40=0; try{ e40Tick(); }catch(err){ v31Err(err); } } }; }
+
+/* ---------- FASE 2 · save v10: migração de saves antigos ---------- */
+{ const _ld=load; load=function(data){ pend40.length=0; const r=_ld.apply(this,arguments);
+  try{ if(!data||!(data.v>=10)||!data.e40){                       // save antigo: tudo inglês, nível pelo dinheiro (no tick)
+    state.e40={ver:1, migrado:data?data.v:0};
+    for(const e of state.ents) if(e.sp==='human'&&!P40(e)) W7(e).e40={et:'ingles',tol:'neutro'};
+    for(const v of state.villages) if(!v.e40){ v.e40={et:'ingles',bairros:null}; bairros40(v); } }
+   else state.e40=data.e40;
+   for(const v of state.villages) if(v.e40) for(const [a,fam] of moradores40(v)){ const H=state.houses[a]; if(H&&!H.n40) nivelTick(H,fam); }
+  }catch(err){ v31Err(err); }
+  return r; }; }
+
+/* ---------- painéis: povo da vila e da pessoa ---------- */
+{ const _vi=villageInfo; villageInfo=function(){ _vi.apply(this,arguments); try{ const v=villageById(state.infoRef); if(!v||!v.e40) return;
+  const B=(v.e40.bairros||[]).map(b=>`${etniaById(b.et).nome} (${Math.round((b.a1-b.a0)/(2*Math.PI)*100)}%)`).join(' · ');
+  const tolN={intolerante:'só o próprio povo',aceita:'aceita mistura (bairros)',neutro:'povo principal e bairro menor'}[v.e40.tol||'neutro'];
+  $('infoLines').insertAdjacentHTML('beforeend',`<div><b>🏘️ Povo:</b> ${etniaById(v.e40.et).nome} · <b>Rei:</b> ${tolN} · <b>Bairros:</b> ${B||'—'}</div>`); }catch(err){ v31Err(err); } }; }
+{ const _ui=updateInfo; updateInfo=function(){ _ui.apply(this,arguments); try{ if(state.infoKind!=='ent') return; const e=byId.get(state.follow); if(!e||e.sp!=='human'||!P40(e)) return;
+  const v=e.vid?villageById(e.vid):null, a=v?homeOf(e,v):-1, H=a>=0?state.houses[a]:null, el=$('infoLines'); if(!el||el.querySelector('.e40p')) return;
+  el.insertAdjacentHTML('beforeend',`<div class="e40p"><b>🏘️ Povo:</b> ${etniaById(etDe(e)).nome}${P40(e).tol==='intolerante'?' · intolerante':P40(e).tol==='aceita'?' · aceita mistura':''}${H&&H.n40?` · <b>Família:</b> ${NIVEIS[H.n40].n}`:''}</div>`); }catch(err){ v31Err(err); } }; }
+
+Object.assign(window.MV40, {ETNIAS, NIVEIS, E40, PRECO_TIPO, etDe, P40, bairros40, nivelTick, nivelPorDinheiro, etDoBairro, moradores40, povosDoMundo, pairUp:(a,b)=>pairUp(a,b)});
+
+/* =====================================================================
+   v40 · FASE 6 · RUAS SÓ DENTRO DAS CIDADES (decisão do Bruno)
+   Dentro da cidade, o chão público que não é rua (grama entre as ruas) fica caro
+   para andar: o caminho prefere as ruas. Lotes, roças, casas, campo, mina e floresta
+   continuam livres para o trabalho.
+   ===================================================================== */
+const RUA40 = {CUSTO:20, REFAZ:2};          // custo extra fora da rua dentro da cidade · refaz o mapa a cada 2 s de jogo
+let rua40=null, rua40T=0;
+const ehRua40 = c => c.terrain==='trampled'||c.terrain==='paved'||c.build==='floor'||c.build==='bridge'||c.build==='gate'||c.build==='door';
+function ruaMask40(){
+ const N=state.w*state.h; if(!rua40||rua40.length!==N) rua40=new Uint8Array(N); else rua40.fill(0);
+ for(const v of state.villages){ if(v.stage==='fire') continue;
+  const priv=new Set(v.road||[]); for(const p of v.plots||[]) for(const i of p.region||[]) priv.add(i);
+  for(const i of v.fields||[]) priv.add(i); for(const f of v.farms||[]) if(Array.isArray(f)) priv.add(idx(f[0],f[1]));
+  for(const [gx,gy] of v.gates||[]) for(let dy=-1;dy<=1;dy++) for(let dx=-1;dx<=1;dx++) priv.add(idx(gx+dx,gy+dy)); // a entrada do portão conta como rua
+  for(const i of v.region||[]){ if(priv.has(i)) continue; const c=state.cells[i]; if(!c||c.build||c.water||ehRua40(c)) continue; rua40[i]=1; } }
+}
+let rua40Alvo=null; // [tx,ty] do caminho sendo calculado: só o destino (e a volta dele) pode ser chão público
+{ const _sc=stepCost; stepCost=function(e,x,y,bv){ const s=_sc(e,x,y,bv);
+  if(s>0&&rua40&&e&&e.sp==='human'&&e.id!==state.playerId&&rua40[y*state.w+x]){
+   if(rua40Alvo&&Math.max(Math.abs(x-rua40Alvo[0]),Math.abs(y-rua40Alvo[1]))>rua40Alvo[2]) return -1;  // custo infinito fora da rua
+   return s*RUA40.CUSTO; }
+  return s; }; }
+/* se não existir caminho só por rua (lote ou destino isolado), calcula de novo sem a regra, para ninguém ficar preso */
+{ const _fp=findPath; findPath=function(e,tx,ty){ if(!rua40||!e||e.sp!=='human') return _fp.apply(this,arguments);
+  rua40Alvo=[tx,ty,arguments[3]?1:0]; let p; try{ p=_fp.apply(this,arguments); } finally{ rua40Alvo=null; }
+  if(!p){ p=_fp.apply(this,arguments);
+   if(p){ rua40Fora++; for(const [px,py] of p){ const x=Math.floor(px), y=Math.floor(py), i=y*state.w+x; if(!rua40[i]) continue; // não havia rua: a cidade abre uma rua de terra batida ali
+     const c=state.cells[i]; c.terrain='trampled'; c.grass=0; rua40[i]=0; markDirty(x,y); rua40Abertas++; } } }
+  return p; }; }
+let rua40Abertas=0;
+let rua40Fora=0;
+/* passeio sem caminho (andar à toa): dentro da cidade, não pisa no chão público fora da rua */
+{ const _pa=passable; passable=function(e,fx,fy){ const r=_pa(e,fx,fy); if(!r||!rua40||!e||e.sp!=='human'||e.path||e.id===state.playerId) return r;
+  const x=Math.floor(fx), y=Math.floor(fy); if(x<0||y<0||x>=state.w||y>=state.h||!rua40[y*state.w+x]) return r;
+  const ex=Math.floor(e.x), ey=Math.floor(e.y); return !!rua40[ey*state.w+ex]; }; } // já está no chão público: deixa sair
+{ const _uw=updateWorld; updateWorld=function(dt){ _uw(dt); rua40T+=dt; if(rua40T>=RUA40.REFAZ||!rua40){ rua40T=0; try{ ruaMask40(); }catch(err){ v31Err(err); } } }; }
+/* passeio, brincadeira e ronda com destino no chão público: o destino vai para a rua mais perto */
+const TAREFA_LIVRE40 = new Set(['idle']);
+function ruaPerto40(x,y,R=8){ let best=null, bd=1e9; for(let dy=-R;dy<=R;dy++) for(let dx=-R;dx<=R;dx++){ const nx=x+dx, ny=y+dy; if(nx<0||ny<0||nx>=state.w||ny>=state.h) continue;
+  const c=state.cells[ny*state.w+nx]; if(!c.reg||!ehRua40(c)) continue; const d=dx*dx+dy*dy; if(d<bd){ bd=d; best=[nx,ny]; } } return best; }
+{ const _st=setTask; setTask=function(e,t,v){ try{ if(t&&t.x!=null&&rua40&&e&&e.sp==='human'&&TAREFA_LIVRE40.has(t.t)&&rua40[t.y*state.w+t.x]){ const r=ruaPerto40(t.x,t.y); if(r){ t.x=r[0]; t.y=r[1]; t.adj=false; } } }catch(err){ v31Err(err); }
+  return _st.apply(this,arguments); }; }
+Object.assign(window.MV40, {RUA40, ruaMask40, rua40:()=>rua40, semCaminhoPorRua:()=>rua40Fora, ruasAbertas:()=>rua40Abertas});
+
+/* =====================================================================
+   v40 · FASE 7 · NÔMADES E ACAMPAMENTOS
+   Família sem casa (de qualquer povo; nomadismo é estado, não traço do povo)
+   escolhe entre VIAJAR, ACAMPAR e ENTRAR NA CIDADE com pontuação ponderada.
+   Acampamento que chega ao tamanho limite vira cidade (foundVillage).
+   Dados: pessoa → w7.e40.nom = {m, x, y, c, t} · acampamentos → state.e40.acamps
+   (os dois já são salvos; o save continua v10).
+   ===================================================================== */
+const NOM40 = {ESPERA:DAY*.1, REVER:DAY*.5, RAIO_CIDADE:80, RAIO_ACAMP:30, LIMITE:6, VIAGEM:[25,45], POR_TICK:4, DESCANSO:DAY*.25};
+const acamps40 = () => (e40().acamps ||= []);
+let nomId40 = 1, nomRR40 = 0;
+/* v41: só quem já é de um grupo nômade (marca P40(e).nomade, de qualquer povo). Quem perde a casa na cidade fica lá como "falido" (bloco v41). */
+const nomade41 = e => !!(e && e.w7 && e.w7.e40 && e.w7.e40.nomade);
+/* "sem casa" nômade: adulto sem vila, que não é eremita, fazendeiro, guilda, salteador, mercenário nem o jogador */
+const semCasa40 = e => e && e.sp==='human' && e.hp>0 && !e.vid && nomade41(e) && isAdultH(e) && e.id!==state.playerId && !e.raid &&
+ !e.hermit && !e.guild && !e.bandit && !e.farmBoss && !e.merc && !e.gwork && !e.famOf && !e.farmKid && e.job==='livre' && !(e.w7&&(e.w7.av||e.w7.hid));
+const nom40 = e => { const p=P40(e); return p&&p.nom||null; };
+function familia40(e){ const pr=e.partner&&byId.get(e.partner); return pr&&semCasa40(pr)?[e,pr]:[e]; }
+const nomeEt40 = e => (etniaById(etDe(e)).nome||'').toLowerCase();
+/* admissão na cidade: a mesma regra da fase 5 (rei intolerante não recebe gente de outro povo; ninguém é expulso) */
+function aceita40(v,fam){ if(!v.e40||reiTol(v)!=='intolerante') return true; const k=byId.get(v.king); const et=k?etDe(k):v.e40.et; return fam.every(h=>etDe(h)===et); }
+function cidadePerto40(e,fam){
+ let best=null, bd=1e9;
+ for(const v of state.villages){ if(v.stage==='fire') continue; const d=Math.hypot(v.cx-e.x,v.cy-e.y); if(d>NOM40.RAIO_CIDADE||d>=bd) continue;
+  if(members(v).length+fam.length>VCAP[Math.min(3,v.era||0)]-2) continue; if(!aceita40(v,fam)) continue; best=v; bd=d; }
+ return best?{v:best,d:bd}:null;
+}
+function acampPerto40(e){ let best=null, bd=1e9; for(const A of acamps40()){ const d=Math.hypot(A.x-e.x,A.y-e.y); if(d<=NOM40.RAIO_ACAMP&&d<bd){ bd=d; best=A; } } return best?{A:best,d:bd}:null; }
+/* pontuação ponderada (igual para todos os povos) */
+function pontos40(e,fam){
+ const cid=cidadePerto40(e,fam), ac=acampPerto40(e), r=()=>Math.random();
+ const s={
+  cidade: cid ? 2 + 1.5*(1-cid.d/NOM40.RAIO_CIDADE) + r() : 0,
+  acampar: 1 + (ac ? .35*ac.A.m.length : 0) + (fam.length>1 ? .5 : 0) + r(),
+  viajar: .8 + (!cid&&!ac ? .5 : 0) + r()
+ };
+ return {s, cid, ac};
+}
+function entraCidade40(fam,v){
+ const p=fam.length>1&&v.stage==='grow'&&v.plots.length<40?createPlot(v):null;
+ for(const h of fam){ Object.assign(h,{vid:v.id,born:0,plotId:p?p.id:0,task:null,path:null,freeSince:null}); h.look.c=v.color; h.job=needJob(v); P40(h).nom=null; }
+}
+function novoAcamp40(e){
+ const f=findCell(e.x,e.y,6,(c,x,y)=>buildable(c)&&!c.reg&&!c.owner) || [Math.floor(e.x),Math.floor(e.y)];
+ const A={id:nomId40++, x:f[0], y:f[1], m:[], et:etDe(e), t:state.time};
+ while(acamps40().some(o=>o.id===A.id)) A.id=nomId40++;
+ const c=cell(f[0],f[1]); if(c&&buildable(c)&&!c.reg){ setBuild(f[0],f[1],'fire',0); A.fogo=1; markAround(f[0],f[1],1); }
+ acamps40().push(A); return A;
+}
+function decide40(e){
+ const fam=familia40(e), {s,cid,ac}=pontos40(e,fam), ant=(nom40(e)||{}).dec;
+ let m='viajar'; if(s.acampar>s[m]) m='acampar'; if(s.cidade>s[m]) m='cidade';
+ const nome=e.name+(fam.length>1?' e família':''), pts=`viajar ${s.viajar.toFixed(1)} · acampar ${s.acampar.toFixed(1)} · cidade ${s.cidade.toFixed(1)}`;
+ let txt='';
+ if(m==='cidade'){ entraCidade40(fam,cid.v); txt=`🧭 ${nome} (sem casa, ${nomeEt40(e)}) decidiu ENTRAR NA CIDADE ${cid.v.name} — ${pts}`; }
+ else if(m==='acampar'){ const A=ac?ac.A:novoAcamp40(e); for(const h of fam){ if(!A.m.includes(h.id)) A.m.push(h.id); P40(h).nom={m:'acampar',x:A.x,y:A.y,c:A.id,t:state.time}; }
+  txt=`🧭 ${nome} (sem casa, ${nomeEt40(e)}) decidiu ACAMPAR${ac?' no acampamento de perto':' e acendeu uma fogueira'} (${A.m.length} no acampamento) — ${pts}`; }
+ else { let tx=Math.floor(e.x), ty=Math.floor(e.y);
+  for(let t=0;t<10;t++){ const ang=Math.random()*Math.PI*2, d=NOM40.VIAGEM[0]+Math.random()*(NOM40.VIAGEM[1]-NOM40.VIAGEM[0]); const x=Math.floor(e.x+Math.cos(ang)*d), y=Math.floor(e.y+Math.sin(ang)*d);
+   if(inside(x,y)&&x>3&&y>3&&x<state.w-4&&y<state.h-4&&passable(e,x,y)&&!cell(x,y).reg){ tx=x; ty=y; break; } }
+  for(const h of fam) P40(h).nom={m:'viajar',x:tx,y:ty,c:0,t:state.time};
+  txt=`🧭 ${nome} (sem casa, ${nomeEt40(e)}) decidiu VIAJAR para longe — ${pts}`; }
+ for(const h of fam){ const n=P40(h).nom; if(n) n.dec=m; }
+ const L=e40(); L.dec=L.dec||{viajar:0,acampar:0,cidade:0}; L.dec[m]++;
+ if(!(m==='viajar'&&ant==='viajar')) pushLog(txt, false);                     // viagem seguida de viagem: conta, mas não repete no log
+ return m;
+}
+/* acampamento grande vira cidade */
+function acampCidade40(A){
+ const ad=A.m.map(id=>byId.get(id)).filter(h=>semCasa40(h)); if(ad.length<NOM40.LIMITE) return false;
+ let a=null, b=null;
+ for(const h of ad){ const pr=h.partner&&byId.get(h.partner); if(pr&&ad.includes(pr)){ a=h; b=pr; break; } }
+ if(!a) for(const h of ad){ if(h.partner) continue; const o=ad.find(o=>o!==h&&!o.partner&&o.sex!==h.sex); if(o){ a=h; b=o; break; } }
+ if(!a){ A.semCasal=1; return false; }
+ if(m34Reinos()>=REINO32.MAX){ if(!A.vaga){ A.vaga=1; pushLog(`⛺ O acampamento já tem ${ad.length} adultos e espera vaga para virar cidade (o mundo já tem ${REINO32.MAX} reinos)`); } return false; } // limite de reinos da v32
+ const n0=state.villages.length; if(!foundVillage(a,b)){ A.falhou=(A.falhou||0)+1; if(A.falhou%3===0) mudaAcamp40(A,ad); return false; }
+ const v=state.villages[n0]||villageById(a.vid); if(!v) return false;
+ const kids=state.ents.filter(k=>k.sp==='human'&&k.hp>0&&!k.vid&&!isAdultH(k)&&(k.parents||[]).some(p=>A.m.includes(p)));
+ for(const h of ad.concat(kids)){ if(h===a||h===b) continue; Object.assign(h,{vid:v.id,born:0,plotId:0,task:null,path:null,freeSince:null}); h.look.c=v.color; if(isAdultH(h)) h.job=needJob(v); }
+ for(const h of ad) if(P40(h)) P40(h).nom=null;
+ fimAcamp40(A);
+ const L=e40(); L.viraram=(L.viraram||0)+1;
+ pushLog(`⛺➜🏘️ O acampamento cresceu (${ad.length} adultos) e virou a cidade ${v.name}`, true, {x:v.cx,y:v.cy});
+ return true;
+}
+/* não cabe cidade aqui (perto da borda, da água ou de outra vila): o acampamento muda para mais perto do meio do mapa */
+function mudaAcamp40(A,ad){
+ const mx=state.w/2, my=state.h/2, d=Math.hypot(mx-A.x,my-A.y)||1, k=Math.min(1,22/d);
+ const f=findCell(Math.round(A.x+(mx-A.x)*k),Math.round(A.y+(my-A.y)*k),6,(c,x,y)=>buildable(c)&&!c.reg&&!c.owner); if(!f) return;
+ if(A.fogo){ const c=cell(A.x,A.y); if(c&&c.build==='fire'&&!c.reg){ clearBuild(A.x,A.y); markAround(A.x,A.y,1); } A.fogo=0; }
+ A.x=f[0]; A.y=f[1]; setBuild(A.x,A.y,'fire',0); A.fogo=1; markAround(A.x,A.y,1);
+ for(const h of ad){ const n=nom40(h); if(n&&n.c===A.id){ n.x=A.x; n.y=A.y; h.task=null; h.path=null; } }
+ pushLog(`⛺ O acampamento não tinha espaço para virar cidade e mudou de lugar`);
+}
+function fimAcamp40(A){ const L=acamps40(), i=L.indexOf(A); if(i>=0) L.splice(i,1);
+ if(A.fogo){ const c=cell(A.x,A.y); if(c&&c.build==='fire'&&!c.reg){ clearBuild(A.x,A.y); markAround(A.x,A.y,1); } } }
+function nomadeTick(){
+ // acampamentos: tira quem saiu ou morreu; o grande vira cidade; vazio some
+ for(const A of acamps40().slice()){ A.m=A.m.filter(id=>{ const h=byId.get(id); const n=h&&nom40(h); return semCasa40(h)&&n&&n.c===A.id; });
+  if(!A.m.length){ fimAcamp40(A); continue; } acampCidade40(A); }
+ // famílias sem casa: poucas por passo
+ const H=state.ents; if(!H.length) return; let n=0;
+ for(let k=0;k<H.length&&n<NOM40.POR_TICK;k++){ const e=H[(nomRR40++)%H.length]; if(!semCasa40(e)||!P40(e)) continue;
+  if(e.partner&&e.partner<e.id&&semCasa40(byId.get(e.partner))) continue;         // a família decide pelo de menor número
+  const p=P40(e); if(p.semT==null){ p.semT=state.time; continue; }
+  if(state.time-p.semT<NOM40.ESPERA) continue;
+  const nm=p.nom;
+  if(nm&&nm.m==='viajar'){ if(Math.hypot(nm.x-e.x,nm.y-e.y)>3){ if(state.time-nm.t<NOM40.REVER) continue; }   // ainda viajando
+   else { if(nm.cheg==null) nm.cheg=state.time; if(state.time-nm.cheg<NOM40.DESCANSO) continue; } }          // chegou: descansa antes de decidir de novo
+  if(nm&&nm.m==='acampar'&&state.time-nm.t<NOM40.REVER) continue;                              // acampado: revê de tempos em tempos
+  if(nm&&nm.m==='acampar'){ const A=acamps40().find(a=>a.id===nm.c); const cid=A&&cidadePerto40(e,familia40(e)); if(A&&!cid){ for(const h of familia40(e)) P40(h).nom.t=state.time; continue; } if(A){ A.m=A.m.filter(id=>!familia40(e).some(h=>h.id===id)); } }
+  n++; decide40(e);
+ }
+ for(const e of H) if(e.sp==='human'&&e.vid&&P40(e)){ const p=P40(e); if(p.semT!=null) p.semT=null; if(p.nom) p.nom=null; if(p.nomade) p.nomade=false; } // entrou numa cidade: deixou de ser nômade
+}
+/* andar conforme a decisão (fome, perigo e caça vêm antes: o pensamento normal roda primeiro) */
+const PRIORIDADE40 = new Set(['flee','fight','hunt','eat','fruit','egg','brawl','rest','defend']);
+{ const _ht=humanThink; humanThink=function(e){ const r=_ht.apply(this,arguments);
+  try{ const n=e.sp==='human'&&!e.vid&&nom40(e);
+   if(n&&semCasa40(e)){
+    e.freeSince=state.time;                                                    // quem tem plano não vira eremita nem entra em guilda
+    if(!(e.task&&PRIORIDADE40.has(e.task.t))&&e.mode!=='hunt'){
+     const meu=e.task&&e.task.n40, d=Math.hypot(n.x+.5-e.x,n.y+.5-e.y);
+     if(n.m==='viajar'){ if(d>2&&(!meu||!(e.path&&e.path.length))){ e.task={t:'idle',n40:1,label:'viajando (sem casa)'}; if(!goTo(e,n.x,n.y,true,9000)) n.t=state.time-NOM40.REVER+DAY*.1; } }
+     else if(n.m==='acampar'){ if(d>4){ if(!meu||!(e.path&&e.path.length)){ e.task={t:'idle',n40:1,label:'indo para o acampamento'}; goTo(e,n.x,n.y,true); } }
+      else if(!meu||!(e.path&&e.path.length)){ e.task={t:'idle',n40:1,label:'acampado'}; e.path=null; pickWander(e,3); } }
+    } } }catch(err){ v31Err(err); }
+  return r; }; }
+{ const _t=e40Tick; e40Tick=function(){ _t(); try{ nomadeTick(); }catch(err){ v31Err(err); } }; }
+Object.assign(window.MV40, {NOM40, acamps:()=>acamps40(), decide40, nomadeTick, semCasa40, acampCidade40, novoAcamp40});
+/* casal que se forma no acampamento fica no acampamento (o acampamento cresce e depois vira cidade) */
+{ const _pu=pairUp; pairUp=function(a,b){
+  try{ const na=!a.vid&&nom40(a), nb=!b.vid&&nom40(b), A=na&&na.m==='acampar'?na:nb&&nb.m==='acampar'?nb:null;
+   if(A&&!a.vid&&!b.vid&&!a.partner&&!b.partner){ const C=acamps40().find(c=>c.id===A.c);
+    if(C){ for(const h of [a,b]){ if(!C.m.includes(h.id)) C.m.push(h.id); P40(h).nom={m:'acampar',x:C.x,y:C.y,c:C.id,t:state.time,dec:'acampar'}; h.task=null; h.path=null; }
+     a.partner=b.id; b.partner=a.id; pushLog(`💞 ${a.name} e ${b.name} formaram uma família no acampamento (${C.m.length} no acampamento)`); return true; } } }catch(err){ v31Err(err); }
+  return _pu.apply(this,arguments); }; }
+/* =====================================================================
+   v40 · FASE 8 · FESTAS COMO DADOS (id, data, efeito)
+   Cada festa é uma linha da tabela FESTAS. Quem celebra são os moradores
+   daquele povo, em qualquer cidade. Dados novos ficam em v.e40 (já salvo):
+   fel (felicidade 0–100), coesao (0–100), prest (prestígio do rei), fd (último dia visto).
+   Datas: o calendário do jogo (cal(): m 0=janeiro, d 1–31, wd 0=segunda … 6=domingo).
+   ===================================================================== */
+const FESTAS = [
+ {id:'santa_sara', et:'romani',     nome:'Festa de Santa Sara Kali', e:'🌹', data:{m:4,d:24}, efeito:{fel:15}},
+ {id:'shabat',     et:'judeu',      nome:'Shabat',                   e:'🕯️', semanal:{de:{wd:4,h:18}, ate:{wd:5,h:18}}, efeito:{pausa:true, coesao:5}},
+ {id:'pessach',    et:'judeu',      nome:'Páscoa judaica (Pessach)', e:'🍷', data:{m:3,d:15}, efeito:{refeicao:true, coesao:5}},
+ {id:'mastro',     et:'ingles',     nome:'Mastro de maio',           e:'🎀', data:{m:4,d:1},  efeito:{fel:10}},
+ {id:'torneio',    et:'ingles',     nome:'Torneio de cavaleiros',    e:'🏇', data:{m:3,d:23}, efeito:{prestigio:10}},
+ {id:'junina',     et:'brasileiro', nome:'Festa junina',             e:'🌽', data:{m:5,d:24}, efeito:{fel:15}},
+ {id:'carnaval',   et:'brasileiro', nome:'Carnaval',                 e:'🎭', data:{m:1,d:15}, efeito:{fel:20}}
+];
+const FESTA_BASE = {fel:50, coesao:50, prest:0, VOLTA:1};   // felicidade e coesão voltam 1 ponto por dia para 50
+const TRAB40 = new Set(['chop','mine','harvest','build','forge','fish','wall','pave','tower','reform','fcraft','fcollect','ffill','deliver','csell','hsell','trade','deposit','loadfood','study','fherd','feedherd']);
+const lim40 = x => Math.max(0,Math.min(100,x));
+const festaStat40 = v => { const E=v.e40; if(E.fel==null){ E.fel=FESTA_BASE.fel; E.coesao=FESTA_BASE.coesao; E.prest=FESTA_BASE.prest; } return E; };
+const participantes40 = (v,et) => members(v).filter(e=>etDe(e)===et);
+/* Shabat (ou outra festa semanal) acontecendo agora? */
+function semanalAgora40(F,C){ const S=F.semanal; if(!S) return false; C=C||cal();
+ const t=C.wd*24+C.h, a=S.de.wd*24+S.de.h, b=S.ate.wd*24+S.ate.h; return a<=b ? t>=a&&t<b : t>=a||t<b; }
+const shabatAgora40 = () => semanalAgora40(FESTAS.find(f=>f.id==='shabat'));
+function aplicaFesta40(v,F,ps){
+ const E=festaStat40(v), ef=F.efeito, txt=[];
+ if(ef.fel){ E.fel=lim40(E.fel+ef.fel); txt.push(`+${ef.fel} de felicidade`); }
+ if(ef.coesao){ E.coesao=lim40(E.coesao+ef.coesao); txt.push(`+${ef.coesao} de união`); }
+ if(ef.refeicao){ let comida=0; for(const e of ps){ const usa=Math.min(.5,Math.max(0,v.food||0)); v.food=(v.food||0)-usa; comida+=usa; e.hunger=100; } txt.push(`refeição coletiva para ${ps.length}`); }
+ if(ef.prestigio){ E.prest=(E.prest||0)+ef.prestigio; const k=byId.get(v.king); if(k){ k.xp=(k.xp||0)+ef.prestigio; addFloat(k.x,k.y-1,'🏆'); } txt.push(`+${ef.prestigio} de prestígio do rei`); }
+ if(ef.pausa) txt.push('descanso do trabalho');
+ for(const e of ps.slice(0,8)) addFloat(e.x,e.y-.8,F.e);
+ if(!ef.pausa) celebrate(v.cx,v.cy,SHIRTS[v.color]);
+ E.ult={id:F.id, di:cal().di}; (E.hist||(E.hist=[])).push(F.id); if(E.hist.length>20) E.hist.shift();
+ pushLog(`${F.e} ${v.name} celebra ${F.nome} (${ps.length} ${etniaById(F.et).nome.toLowerCase()}) — ${txt.join(', ')}`, false);
+}
+function festaTick(){
+ const C=cal();
+ for(const v of state.villages){ if(!v.e40||!members(v).length) continue; const E=festaStat40(v);
+  if(E.fd!==C.di){ // um novo dia: festas de data fixa e a volta lenta para o normal
+   if(E.fd!=null){ const n=Math.min(30,Math.max(1,C.di-E.fd)); for(const k of ['fel','coesao']) E[k]=E[k]>50?Math.max(50,E[k]-n*FESTA_BASE.VOLTA):Math.min(50,E[k]+n*FESTA_BASE.VOLTA); }
+   E.fd=C.di;
+   for(const F of FESTAS){ if(!F.data||F.data.m!==C.m||F.data.d!==C.d) continue; const ps=participantes40(v,F.et); if(ps.length) aplicaFesta40(v,F,ps); }
+  }
+  for(const F of FESTAS){ if(!F.semanal) continue; const on=semanalAgora40(F,C), k='sem_'+F.id;   // festa semanal: efeito uma vez quando começa
+   if(on&&!E[k]){ E[k]=1; const ps=participantes40(v,F.et); if(ps.length) aplicaFesta40(v,F,ps); } else if(!on&&E[k]) E[k]=0; }
+ }
+}
+/* Shabat: quem é judeu não pega tarefa de trabalho (descansa); defesa, comida e fuga continuam */
+{ const _st=setTask; setTask=function(e,t,v){ try{ if(t&&TRAB40.has(t.t)&&e&&e.sp==='human'&&e.id!==state.playerId&&etDe(e)==='judeu'&&shabatAgora40()){ e.task=null; return false; } }catch(err){ v31Err(err); }
+  return _st.apply(this,arguments); }; }
+{ const _t=e40Tick; e40Tick=function(){ _t(); try{ festaTick(); }catch(err){ v31Err(err); } }; }
+/* painel da vila: felicidade, união, prestígio e a última festa */
+{ const _vi=villageInfo; villageInfo=function(){ _vi.apply(this,arguments); try{ const v=villageById(state.infoRef); if(!v||!v.e40||v.e40.fel==null) return; const E=v.e40, U=E.ult&&FESTAS.find(f=>f.id===E.ult.id);
+  $('infoLines').insertAdjacentHTML('beforeend',`<div><b>🎉 Festas:</b> felicidade ${Math.round(E.fel)} · união ${Math.round(E.coesao)} · prestígio do rei ${E.prest||0}${U?` · última: ${U.e} ${U.nome}`:''}</div>`); }catch(err){ v31Err(err); } }; }
+Object.assign(window.MV40, {FESTAS, festaTick, shabatAgora40, semanalAgora40, aplicaFesta40, __setTask:(e,t,v)=>setTask(e,t,v)});
+/* =====================================================================
+   v40 · FASE 9 · HIPÓDROMO, CORRIDAS E APOSTAS
+   Tipo novo de construção 'hipodromo' (no FIM de BUILDS, noMenu). Cidade
+   (era Cidade ou mais) ganha um hipódromo num chão público; corrida todo sábado 15h.
+   4 a 6 cavalos. Velocidade = base × aleatório(0,9–1,1) × (1 + 0,05 × treino).
+   Aposta: no máximo 20% das moedas da pessoa. A casa (o tesouro da cidade) fica com 10%
+   do total apostado; o resto é dividido entre quem acertou, na proporção da aposta.
+   Ninguém acertou: o prêmio volta para quem apostou. Nenhuma moeda é criada:
+   o dinheiro só troca de mão (pessoas ↔ tesouro). Dados em v.e40.hip (já salvo).
+   ===================================================================== */
+const HIP40 = {CAVALOS:[4,6], APOSTA_MAX:.2, TAXA:.1, CHANCE_APOSTAR:.35, TREINO_MAX:10, ERA:1, DIA:5, HORA:15,
+ NOMES:['Relâmpago','Trovão','Estrela','Ventania','Faísca','Cometa','Pé-de-Vento','Moreno','Baio','Tordilho','Zéfiro','Brisa']};
+const r2 = x => Math.round(x*100)/100;
+function cavalosNovos40(){ const n=HIP40.CAVALOS[0]+((Math.random()*(HIP40.CAVALOS[1]-HIP40.CAVALOS[0]+1))|0), nm=HIP40.NOMES.slice().sort(()=>Math.random()-.5);
+ return nm.slice(0,n).map(nome=>({nome, base:r2(.9+Math.random()*.2), treino:0, vit:0})); }
+const velCavalo40 = c => c.base*(.9+Math.random()*.2)*(1+.05*c.treino);       // a fórmula do plano
+/* uma corrida: devolve o resultado; o dinheiro total (pessoas + tesouro) não muda */
+function corrida40(v, quiet){
+ const Hp=v.e40&&v.e40.hip; if(!Hp) return null; const C=Hp.cavalos;
+ // apostas
+ const bets=[]; for(const e of members(v)){ if(!isAdultH(e)||e.id===state.playerId) continue; const m=e.coins||0; if(m<1||Math.random()>HIP40.CHANCE_APOSTAR) continue;
+  const val=r2(Math.min(m*HIP40.APOSTA_MAX, Math.max(1, m*HIP40.APOSTA_MAX*Math.random()))); if(val<=0||val>m*HIP40.APOSTA_MAX+1e-9) continue;
+  e.coins=m-val; bets.push({e, c:(Math.random()*C.length)|0, val}); }
+ const pote=r2(bets.reduce((s,b)=>s+b.val,0));
+ // a corrida
+ const vel=C.map(velCavalo40); let w=0; for(let i=1;i<C.length;i++) if(vel[i]>vel[w]) w=i;
+ C[w].vit++; for(const c of C) if(c.treino<HIP40.TREINO_MAX) c.treino=r2(Math.min(HIP40.TREINO_MAX,c.treino+.25));
+ // pagamento
+ const taxa=r2(pote*HIP40.TAXA), premio=r2(pote-taxa), ganh=bets.filter(b=>b.c===w);
+ const quem=ganh.length?ganh:bets, bq=quem.reduce((s,b)=>s+b.val,0);              // ninguém acertou: o prêmio volta para quem apostou
+ let pago=0; for(const b of quem){ const p=r2(premio*b.val/bq); b.e.coins=(b.e.coins||0)+p; pago=r2(pago+p); }
+ const casa=pote-pago; v.coins=coinsOf(v)+casa;                       // a taxa (e a sobra do arredondamento)
+ Hp.n=(Hp.n||0)+1; Hp.pote=r2((Hp.pote||0)+pote); Hp.casa=r2((Hp.casa||0)+casa);
+ const R={vencedor:C[w].nome, apostas:bets.length, pote, casa, ganhadores:ganh.length};
+ if(!quiet){ const a=Hp.a; addFloat(a%state.w,(a/state.w)|0,'🏇'); const f=x=>x>=10?Math.round(x):x.toFixed(1); pushLog(`🏇 Corrida em ${v.name}: venceu ${C[w].nome}${bets.length?` · ${bets.length} ${bets.length>1?'apostaram':'apostou'} ${f(pote)}🪙 · ${ganh.length?ganh.length+' acertou'+(ganh.length>1?'aram':''):'ninguém acertou (prêmio devolvido)'} · a casa ficou com ${f(casa)}🪙`:' · ninguém apostou'}`, false); }
+ return R;
+}
+/* o hipódromo: um chão público dentro da cidade (não é rua, nem lote, nem roça) */
+function poeHip40(v){
+ if(!rua40) return false; let best=-1, bd=1e9;
+ for(const i of v.region){ if(!rua40[i]) continue; const c=state.cells[i]; if(c.build||c.water) continue; const x=i%state.w, y=(i/state.w)|0, d=Math.hypot(x-v.cx,y-v.cy); if(d<3) continue; if(d<bd){ bd=d; best=i; } }
+ if(best<0) return false; const x=best%state.w, y=(best/state.w)|0;
+ setBuild(x,y,'hipodromo',v.id); markAround(x,y,1);
+ v.e40.hip={a:best, cavalos:cavalosNovos40(), n:0, pote:0, casa:0, ult:-1};
+ pushLog(`🏇 ${v.name} abriu um hipódromo com ${v.e40.hip.cavalos.length} cavalos (corrida todo sábado à tarde)`, false);
+ return true;
+}
+function hipTick(){
+ const C=cal();
+ for(const v of state.villages){ if(!v.e40||(v.era||0)<HIP40.ERA||!members(v).length) continue;
+  const Hp=v.e40.hip; if(Hp&&state.cells[Hp.a].build!=='hipodromo') v.e40.hip=null;           // demolido: reconstrói
+  if(!v.e40.hip){ poeHip40(v); continue; }
+  if(C.wd===HIP40.DIA&&C.h>=HIP40.HORA&&v.e40.hip.ult!==C.di){ v.e40.hip.ult=C.di; corrida40(v); }
+ }
+}
+{ const _t=e40Tick; e40Tick=function(){ _t(); try{ hipTick(); }catch(err){ v31Err(err); } }; }
+/* desenho: pista oval de terra com cerca branca e um cavalinho */
+{ const _dsb=drawSmallBuild; drawSmallBuild=function(g,c,x,y,px,py){ if(c.build!=='hipodromo') return _dsb.apply(this,arguments);
+  g.fillStyle='#6f9a4a'; g.fillRect(px,py,T,T);
+  g.fillStyle='#c9a46a'; g.beginPath(); g.ellipse(px+8,py+8,7.5,5.5,0,0,Math.PI*2); g.fill();
+  g.fillStyle='#6f9a4a'; g.beginPath(); g.ellipse(px+8,py+8,4.5,2.5,0,0,Math.PI*2); g.fill();
+  g.strokeStyle='#f4f1e6'; g.lineWidth=1; g.beginPath(); g.ellipse(px+8,py+8,7.5,5.5,0,0,Math.PI*2); g.stroke();
+  g.fillStyle='#5a3a22'; g.fillRect(px+2,py+6,3,2); g.fillRect(px+4,py+5,1,1); g.fillStyle='#e8d29a'; g.fillRect(px+12,py+2,1,4); g.fillStyle='#d84a3a'; g.fillRect(px+13,py+2,2,2); }; }
+/* painel da cidade */
+{ const _vi=villageInfo; villageInfo=function(){ _vi.apply(this,arguments); try{ const v=villageById(state.infoRef); const Hp=v&&v.e40&&v.e40.hip; if(!Hp) return;
+  const top=Hp.cavalos.slice().sort((a,b)=>b.vit-a.vit)[0];
+  $('infoLines').insertAdjacentHTML('beforeend',`<div><b>🏇 Hipódromo:</b> ${Hp.cavalos.length} cavalos · ${Hp.n} corridas · apostado ${Math.round(Hp.pote)}🪙 · casa ${Math.round(Hp.casa)}🪙${top&&top.vit?` · campeão: ${top.nome} (${top.vit})`:''}</div>`); }catch(err){ v31Err(err); } }; }
+Object.assign(window.MV40, {HIP40, corrida40, poeHip40, hipTick, velCavalo40});
+/* =====================================================================
+   v40 · FASE 10 · ESTRADAS DE UMA PISTA ENTRE OS PORTÕES
+   O jogo já liga as cidades com estradas (v29: hwEnds = logo fora do portão,
+   hwRoute = caminho em grade de 8 direções, 1 quadrado de largura).
+   A v40 só acerta o traçado das estradas NOVAS: toda curva fica de 45°
+   (curva de 90° ou mais vira duas curvas de 45°, cortando o canto) e a
+   estrada não corre colada ao lado de outra (sem pista dupla).
+   Estradas que já existem (e as avenidas de 2 faixas da v36) não mudam.
+   ===================================================================== */
+const EST40 = {ATIVO:true, LADO:2, CURVA:4};   // custo extra: andar colado ao lado de outra estrada · curva maior que 45°
+const dirDe40 = (a,b) => { const W=state.w, dx=(b%W)-(a%W), dy=((b/W)|0)-((a/W)|0); return D8B.findIndex(d=>d[0]===dx&&d[1]===dy); };
+const ANG40 = [0,2,4,6,1,7,3,5];                       // D8B → oitavos de volta (0 = leste, sentido horário)
+function giro40(d1,d2){ if(d1<0||d2<0) return 9; const a=Math.abs(ANG40[d1]-ANG40[d2])%8; return Math.min(a,8-a); } // 0 reto · 1 = 45° · 2 = 90° · 3 = 135°
+const vizinho8 = (a,b) => { const W=state.w; return Math.max(Math.abs((a%W)-(b%W)),Math.abs(((a/W)|0)-((b/W)|0)))===1; };
+/* corta os cantos: curva maior que 45° perde o quadrado do canto (se as duas pontas se tocam e não é ponte) */
+function suaviza40(p){
+ if(!p||p.length<3) return p; p=p.slice();
+ for(let volta=0;volta<p.length;volta++){ let mudou=false;
+  for(let i=1;i<p.length-1;i++){ const g=giro40(dirDe40(p[i-1],p[i]),dirDe40(p[i],p[i+1])); if(g<=1) continue;
+   if(vizinho8(p[i-1],p[i+1])&&!state.cells[p[i]].water&&!state.cells[p[i-1]].water&&!state.cells[p[i+1]].water){ p.splice(i,1); mudou=true; i=Math.max(0,i-2); continue; }
+   // duas diagonais em V (90°): o canto vira o quadrado do meio e o trecho fica reto
+   const W=state.w, ax=p[i-1]%W, ay=(p[i-1]/W)|0, bx=p[i+1]%W, by=(p[i+1]/W)|0;
+   if((Math.abs(ax-bx)===2&&ay===by)||(Math.abs(ay-by)===2&&ax===bx)){ const m=((ay+by)/2)*W+(ax+bx)/2, c=state.cells[m];
+    if(c&&!c.water&&c.terrain!=='hillHigh'&&(!c.build||BUILDS[c.build].gate||c.build==='bridge')&&!state.cells[p[i]].water){ p[i]=m; mudou=true; i=Math.max(0,i-2); } } }
+  if(!mudou) break; }
+ return p;
+}
+/* estradas planejadas (mesmo as que ainda não foram abertas) e os quadrados colados nelas, fora das cidades */
+function plano40(){ const N=state.w*state.h, on=new Uint8Array(N), near=new Uint8Array(N), W=state.w;
+ for(const r of (state.roads||[])) for(const k of r.cells||[]) on[k]=1;
+ for(let k=0;k<N;k++){ const c=state.cells[k]; if(!c.reg&&!c.water&&(c.terrain==='trampled'||c.terrain==='paved')) on[k]=1; }
+ for(let k=0;k<N;k++){ if(!on[k]||state.cells[k].reg) continue; const x=k%W; for(const [dx,dy] of D8B){ const nx=x+dx, nk=k+dy*W+dx; if(nx<0||nx>=W||nk<0||nk>=N) continue; if(!on[nk]) near[nk]=1; } }
+ return {on, near}; }
+/* o mesmo A* da v29 (hwPath), com dois custos a mais: lado de estrada e curva fechada */
+function hwPath40(s,t,block){
+ const PL=plano40();
+ const W=state.w, N=W*state.h, G=new Float32Array(N).fill(1e9), P=new Int32Array(N).fill(-1), Dir=new Int8Array(N).fill(-1), done=new Uint8Array(N);
+ const si=s[1]*W+s[0], ti=t[1]*W+t[0]; G[si]=0;
+ const hk=[], hf=[]; let n=0;
+ const H=k=>{ const x=k%W, y=(k/W)|0, dx=Math.abs(x-t[0]), dy=Math.abs(y-t[1]); return Math.max(dx,dy)+.42*Math.min(dx,dy); };
+ const push=(k,f)=>{ let i=hk.length; hk.push(k); hf.push(f); while(i>0){ const p=(i-1)>>1; if(hf[p]<=f) break; hk[i]=hk[p]; hf[i]=hf[p]; i=p; } hk[i]=k; hf[i]=f; };
+ const pop=()=>{ const top=hk[0], lk=hk.pop(), lf=hf.pop(); if(hk.length){ let i=0; for(;;){ let c=2*i+1; if(c>=hk.length) break; if(c+1<hk.length&&hf[c+1]<hf[c]) c++; if(hf[c]>=lf) break; hk[i]=hk[c]; hf[i]=hf[c]; i=c; } hk[i]=lk; hf[i]=lf; } return top; };
+ push(si,H(si));
+ while(hk.length && n<Math.max(30000,state.w*state.h*.7)){ // v29: mapa maior, busca maior
+  const cur=pop();
+  if(done[cur]) continue; done[cur]=1; n++;
+  if(cur===ti) break;
+  const cx=cur%W, cy=(cur/W)|0;
+  for(let d=0;d<8;d++){ const [dx,dy]=D8B[d], nx=cx+dx, ny=cy+dy; if(nx<1||ny<1||nx>=W-1||ny>=state.h-1) continue;
+   const k=ny*W+nx; if(done[k]||block.has(k)) continue; const c=state.cells[k];
+   if(c.terrain==='hillHigh') continue;
+   if(c.build && !BUILDS[c.build].gate && c.build!=='bridge' && k!==ti) continue;
+   let cost=(c.terrain==='trampled'||c.terrain==='paved'||c.build==='bridge'||PL.on[k])?.45:c.water?5:c.terrain==='hillMid'?4:c.terrain==='hillLow'?1.6:c.tree?1.4:1;
+   if(!PL.on[k]&&PL.near[k]&&k!==ti) cost+=EST40.LADO; // v40: não corre colada ao lado de outra estrada (sem pista dupla)
+   if(c.reg && k!==ti) cost+=6;
+   if(d>=4){ cost*=1.42; if(c.water||cell(cx+dx,cy).water||cell(cx,cy+dy).water) cost+=2; }
+   if(Dir[cur]>=0 && Dir[cur]!==d) cost+=giro40(Dir[cur],d)>1?EST40.CURVA:.6; // v40: curva de 45° é barata; de 90° ou mais, cara
+   const g=G[cur]+cost; if(g<G[k]){ G[k]=g; P[k]=cur; Dir[k]=d; push(k,g+H(k)); }
+  }
+ }
+ if(P[ti]<0 && ti!==si) return null;
+ const out=[]; for(let k=ti;k>=0;k=P[k]){ out.push(k); if(k===si) break; } return out.reverse();
+}
+
+/* medidas para o teste (e para o relatório) */
+function medeEstradas40(rs){
+ rs=rs||(state.roads||[]).filter(r=>r.kind==='v'&&r.cells.length);
+ const W=state.w, todas=new Set(); let grade=0, curvas=0, curvasPonte=0, passos=0;
+ for(const r of rs){ const p=r.cells; for(const k of p) todas.add(k);
+  for(let i=1;i<p.length;i++){ passos++; if(!vizinho8(p[i-1],p[i])) grade++; }
+  for(let i=1;i<p.length-1;i++){ const g=giro40(dirDe40(p[i-1],p[i]),dirDe40(p[i],p[i+1])); if(g>1){ if(state.cells[p[i]].water||state.cells[p[i-1]].water||state.cells[p[i+1]].water) curvasPonte++; else curvas++; } } }
+ // pista dupla: bloco 2×2 todo de estrada, fora das cidades
+ // cruzamento em X (duas estradas cruzando na diagonal) não é pista dupla; duas estradas lado a lado é
+ const dono=new Map(); rs.forEach((r,i)=>{ for(const k of r.cells){ let s=dono.get(k); if(!s) dono.set(k,s=new Set()); s.add(i); } });
+ let dupla=0, cruz=0, pertoPonta=0; for(const k of todas){ if(state.cells[k].reg) continue; const q=[k,k+1,k+W,k+W+1]; if(!q.every(c=>todas.has(c))) continue;
+  const tem=(a,b)=>[...dono.get(a)].some(i=>dono.get(b).has(i));
+  const xis=!rs.some((r,i)=>q.filter(c=>dono.get(c).has(i)).length>=3)&&tem(k,k+W+1)&&tem(k+1,k+W);   // cada estrada passa na diagonal do bloco
+  if(xis) cruz++; else { dupla++; const ps=rs.flatMap(r=>[r.cells[0],r.cells[r.cells.length-1]]); const d=Math.min(...ps.map(p=>Math.max(Math.abs(p%W-k%W),Math.abs(((p/W)|0)-((k/W)|0))))); if(d<=2) pertoPonta++; } }
+ return {estradas:rs.length, passos, foraDaGrade:grade, curvasMaiorQue45:curvas, curvasEmPonte:curvasPonte, blocosPistaDupla:dupla, duplaPertoDaPonta:pertoPonta, cruzamentosEmX:cruz};
+}
+{ const _hp=hwPath; hwPath=function(s,t,block){ if(!EST40.ATIVO) return _hp.apply(this,arguments); try{ return hwPath40(s,t,block); }catch(err){ v31Err(err); return _hp.apply(this,arguments); } }; }
+{ const _hr=hwRoute; hwRoute=function(s,t){ const p=_hr.apply(this,arguments); if(!p||!EST40.ATIVO) return p; try{ return suaviza40(p); }catch(err){ v31Err(err); return p; } }; }
+Object.assign(window.MV40, {EST40, suaviza40, medeEstradas40, hwRoute:(s,t)=>hwRoute(s,t), hwEnds:(v,x,y)=>hwEnds(v,x,y)});
+/* =====================================================================
+   v41 · AJUSTES DO PLANO DE RELEASE (sobre a v40)
+   · Nomadismo só para grupos que já são nômades: no mundo novo, um grupo de
+     NOMADE41.GRUPO pessoas (de qualquer povo, sorteado pelo lugar) começa nômade;
+     filho de nômade sem cidade nasce nômade; quem entra numa cidade deixa de ser.
+   · Família sem casa DENTRO da cidade fica na cidade como "falida" (marca na pessoa,
+     aparece no painel e no log). Ninguém é expulso.
+   · Venda de casa: 70% (E40.VENDA_CASA, constante ajustável, já na fase 4).
+   Dados novos só dentro de w7.e40 (já salvo): nomade, falida. O save continua v10.
+   ===================================================================== */
+const NOMADE41 = {GRUPO:4};
+function semeiaNomades41(){
+ const H=state.ents.filter(e=>e.sp==='human'&&e.hp>0&&!e.vid&&e.id!==state.playerId&&P40(e)); if(H.length<NOMADE41.GRUPO*2) return 0;
+ const c=H[(Math.random()*H.length)|0], g=H.slice().sort((a,b)=>Math.hypot(a.x-c.x,a.y-c.y)-Math.hypot(b.x-c.x,b.y-c.y)).slice(0,NOMADE41.GRUPO);
+ for(const e of g){ const p=P40(e); p.nomade=true; p.semT=state.time-NOM40.ESPERA; }    // já decide no primeiro passo
+ e40().nomades0=g.length; return g.length;
+}
+{ const _gw=generateWorld; generateWorld=function(){ const r=_gw.apply(this,arguments); try{ semeiaNomades41(); }catch(err){ v31Err(err); } return r; }; }
+/* filho de nômade que nasce sem cidade também é nômade */
+{ const _pn=povoNascido; povoNascido=function(e){ const r=_pn.apply(this,arguments);
+  try{ const ps=(e.parents||[]).map(id=>byId.get(id)).filter(Boolean); if(!e.vid&&ps.some(p=>nomade41(p))&&P40(e)) P40(e).nomade=true; }catch(err){ v31Err(err); } return r; }; }
+/* dois nômades que se casam continuam nômades (a cidade nasce do acampamento, fase 7) */
+{ const _pu=pairUp; pairUp=function(a,b){
+  try{ if(!a.vid&&!b.vid&&nomade41(a)&&nomade41(b)&&!a.partner&&!b.partner&&!(nom40(a)&&nom40(a).m==='acampar')&&!(nom40(b)&&nom40(b).m==='acampar')){
+    a.partner=b.id; b.partner=a.id; pushLog(`💞 ${a.name} e ${b.name} formaram uma família nômade`); return true; } }catch(err){ v31Err(err); }
+  return _pu.apply(this,arguments); }; }
+/* família falida: mora na cidade, mas está sem casa */
+let fal41RR=0;
+function falidaTick41(){
+ const V=state.villages; if(!V.length) return; const v=V[(fal41RR++)%V.length]; if(!v||!v.e40) return;
+ for(const e of members(v)){ const p=P40(e); if(!p||!isAdultH(e)||e.id===state.playerId) continue;
+  const sem=homeOf(e,v)<0;
+  if(!sem){ p.casa41=true; if(p.falida) p.falida=false; continue; }
+  if(!p.falida){ p.falida=true; const pr=e.partner&&byId.get(e.partner);                 // quem acabou de chegar e espera a 1ª casa também conta, mas só avisa quem perdeu a casa
+   if(p.casa41&&!(pr&&P40(pr)&&P40(pr).falida)) pushLog(`🏚️ A família de ${e.name} perdeu a casa e está falida em ${v.name}, mas continua morando na cidade`, false); }
+ }
+}
+{ const _t=e40Tick; e40Tick=function(){ _t(); try{ falidaTick41(); }catch(err){ v31Err(err); } }; }
+{ const _ui=updateInfo; updateInfo=function(){ _ui.apply(this,arguments); try{ if(state.infoKind!=='ent') return; const e=byId.get(state.follow); const p=e&&P40(e); if(!p) return; const el=$('infoLines'); if(!el||el.querySelector('.v41p')) return;
+  const t=p.falida?'🏚️ Família falida (sem casa, mora na cidade)':p.nomade&&!e.vid?'🧭 Nômade'+(p.nom?` · ${p.nom.m==='acampar'?'acampado':'viajando'}`:''):''; if(t) el.insertAdjacentHTML('beforeend',`<div class="v41p">${t}</div>`); }catch(err){ v31Err(err); } }; }
+Object.assign(window.MV40, {NOMADE41, semeiaNomades41, falidaTick41, nomade41});
 selectTool('terrain');
 renderSaves();
 resize();
