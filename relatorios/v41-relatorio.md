@@ -39,6 +39,15 @@ Números de linha = `versoes/mundo-vivo-v39.html`.
 10. **Prédios públicos novos** (templo, escola, feira, xerife): o plano lista como decisão, mas nenhuma fase pede. Só o hipódromo foi feito.
 11. **Nomes dos bebês** continuam da lista antiga; só os primeiros moradores têm nome do seu povo.
 
+## Extra: casas 2.5D (módulo CASA25 do Bruno)
+
+- Código: `codigo/v41-casa25.js`. O módulo do Bruno entrou **sem mudanças**; em volta dele só tem a ligação com o jogo.
+- Vale só para casas que têm marca de povo (`H.povo`) e nível (`H.n40`). O nível 1 a 9 vira o `tier` 0 a 8 do módulo; a variante é a mesma da v40 (`artVariant`). Casas antigas sem marca continuam com o desenho de antes.
+- Cada desenho é feito uma vez e guardado (cache por nível, povo, variante e cor do reino). A cor do reino aparece como uma bandeirinha pequena.
+- Para desligar e voltar ao desenho da v40: `MV41.casa25=false` (no console).
+- Teste: 60 quadros por segundo com e sem o CASA25; 10x = 9,99; nenhum erro no console. Save não muda (continua v10).
+- NÃO VERIFICADO: celular de verdade.
+
 ## Checklist manual (para testar no celular ou no navegador)
 
 1. **Mundo novo:** criar um mundo "Grande". Ver cidades com casas de povos diferentes (bandeirolas Romani, mezuzá judaica, azulejo brasileiro, viga em X inglesa).
