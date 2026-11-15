@@ -9,8 +9,10 @@
 const NOM40 = {ESPERA:DAY*.1, REVER:DAY*.5, RAIO_CIDADE:80, RAIO_ACAMP:30, LIMITE:6, VIAGEM:[25,45], POR_TICK:4, DESCANSO:DAY*.25};
 const acamps40 = () => (e40().acamps ||= []);
 let nomId40 = 1, nomRR40 = 0;
-/* "sem casa": adulto sem vila, que não é eremita, fazendeiro, guilda, salteador, mercenário nem o jogador */
-const semCasa40 = e => e && e.sp==='human' && e.hp>0 && !e.vid && isAdultH(e) && e.id!==state.playerId && !e.raid &&
+/* v41: só quem já é de um grupo nômade (marca P40(e).nomade, de qualquer povo). Quem perde a casa na cidade fica lá como "falido" (bloco v41). */
+const nomade41 = e => !!(e && e.w7 && e.w7.e40 && e.w7.e40.nomade);
+/* "sem casa" nômade: adulto sem vila, que não é eremita, fazendeiro, guilda, salteador, mercenário nem o jogador */
+const semCasa40 = e => e && e.sp==='human' && e.hp>0 && !e.vid && nomade41(e) && isAdultH(e) && e.id!==state.playerId && !e.raid &&
  !e.hermit && !e.guild && !e.bandit && !e.farmBoss && !e.merc && !e.gwork && !e.famOf && !e.farmKid && e.job==='livre' && !(e.w7&&(e.w7.av||e.w7.hid));
 const nom40 = e => { const p=P40(e); return p&&p.nom||null; };
 function familia40(e){ const pr=e.partner&&byId.get(e.partner); return pr&&semCasa40(pr)?[e,pr]:[e]; }
@@ -109,7 +111,7 @@ function nomadeTick(){
   if(nm&&nm.m==='acampar'){ const A=acamps40().find(a=>a.id===nm.c); const cid=A&&cidadePerto40(e,familia40(e)); if(A&&!cid){ for(const h of familia40(e)) P40(h).nom.t=state.time; continue; } if(A){ A.m=A.m.filter(id=>!familia40(e).some(h=>h.id===id)); } }
   n++; decide40(e);
  }
- for(const e of H) if(e.sp==='human'&&e.vid&&P40(e)){ const p=P40(e); if(p.semT!=null) p.semT=null; if(p.nom) p.nom=null; }
+ for(const e of H) if(e.sp==='human'&&e.vid&&P40(e)){ const p=P40(e); if(p.semT!=null) p.semT=null; if(p.nom) p.nom=null; if(p.nomade) p.nomade=false; } // entrou numa cidade: deixou de ser nômade
 }
 /* andar conforme a decisão (fome, perigo e caça vêm antes: o pensamento normal roda primeiro) */
 const PRIORIDADE40 = new Set(['flee','fight','hunt','eat','fruit','egg','brawl','rest','defend']);

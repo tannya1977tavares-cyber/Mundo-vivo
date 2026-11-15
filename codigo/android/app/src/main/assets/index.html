@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>Mundo Vivo v40</title>
+<title>Mundo Vivo v41</title>
 <style>
 /* Visual: painel escuro de "mesa de deus" em volta de um mapa em pixel art; verde-broto como acento. */
 :root{
@@ -24773,8 +24773,10 @@ Object.assign(window.MV40, {RUA40, ruaMask40, rua40:()=>rua40, semCaminhoPorRua:
 const NOM40 = {ESPERA:DAY*.1, REVER:DAY*.5, RAIO_CIDADE:80, RAIO_ACAMP:30, LIMITE:6, VIAGEM:[25,45], POR_TICK:4, DESCANSO:DAY*.25};
 const acamps40 = () => (e40().acamps ||= []);
 let nomId40 = 1, nomRR40 = 0;
-/* "sem casa": adulto sem vila, que não é eremita, fazendeiro, guilda, salteador, mercenário nem o jogador */
-const semCasa40 = e => e && e.sp==='human' && e.hp>0 && !e.vid && isAdultH(e) && e.id!==state.playerId && !e.raid &&
+/* v41: só quem já é de um grupo nômade (marca P40(e).nomade, de qualquer povo). Quem perde a casa na cidade fica lá como "falido" (bloco v41). */
+const nomade41 = e => !!(e && e.w7 && e.w7.e40 && e.w7.e40.nomade);
+/* "sem casa" nômade: adulto sem vila, que não é eremita, fazendeiro, guilda, salteador, mercenário nem o jogador */
+const semCasa40 = e => e && e.sp==='human' && e.hp>0 && !e.vid && nomade41(e) && isAdultH(e) && e.id!==state.playerId && !e.raid &&
  !e.hermit && !e.guild && !e.bandit && !e.farmBoss && !e.merc && !e.gwork && !e.famOf && !e.farmKid && e.job==='livre' && !(e.w7&&(e.w7.av||e.w7.hid));
 const nom40 = e => { const p=P40(e); return p&&p.nom||null; };
 function familia40(e){ const pr=e.partner&&byId.get(e.partner); return pr&&semCasa40(pr)?[e,pr]:[e]; }
@@ -24873,7 +24875,7 @@ function nomadeTick(){
   if(nm&&nm.m==='acampar'){ const A=acamps40().find(a=>a.id===nm.c); const cid=A&&cidadePerto40(e,familia40(e)); if(A&&!cid){ for(const h of familia40(e)) P40(h).nom.t=state.time; continue; } if(A){ A.m=A.m.filter(id=>!familia40(e).some(h=>h.id===id)); } }
   n++; decide40(e);
  }
- for(const e of H) if(e.sp==='human'&&e.vid&&P40(e)){ const p=P40(e); if(p.semT!=null) p.semT=null; if(p.nom) p.nom=null; }
+ for(const e of H) if(e.sp==='human'&&e.vid&&P40(e)){ const p=P40(e); if(p.semT!=null) p.semT=null; if(p.nom) p.nom=null; if(p.nomade) p.nomade=false; } // entrou numa cidade: deixou de ser nômade
 }
 /* andar conforme a decisão (fome, perigo e caça vêm antes: o pensamento normal roda primeiro) */
 const PRIORIDADE40 = new Set(['flee','fight','hunt','eat','fruit','egg','brawl','rest','defend']);
@@ -25105,6 +25107,47 @@ function medeEstradas40(rs){
 { const _hp=hwPath; hwPath=function(s,t,block){ if(!EST40.ATIVO) return _hp.apply(this,arguments); try{ return hwPath40(s,t,block); }catch(err){ v31Err(err); return _hp.apply(this,arguments); } }; }
 { const _hr=hwRoute; hwRoute=function(s,t){ const p=_hr.apply(this,arguments); if(!p||!EST40.ATIVO) return p; try{ return suaviza40(p); }catch(err){ v31Err(err); return p; } }; }
 Object.assign(window.MV40, {EST40, suaviza40, medeEstradas40, hwRoute:(s,t)=>hwRoute(s,t), hwEnds:(v,x,y)=>hwEnds(v,x,y)});
+/* =====================================================================
+   v41 · AJUSTES DO PLANO DE RELEASE (sobre a v40)
+   · Nomadismo só para grupos que já são nômades: no mundo novo, um grupo de
+     NOMADE41.GRUPO pessoas (de qualquer povo, sorteado pelo lugar) começa nômade;
+     filho de nômade sem cidade nasce nômade; quem entra numa cidade deixa de ser.
+   · Família sem casa DENTRO da cidade fica na cidade como "falida" (marca na pessoa,
+     aparece no painel e no log). Ninguém é expulso.
+   · Venda de casa: 70% (E40.VENDA_CASA, constante ajustável, já na fase 4).
+   Dados novos só dentro de w7.e40 (já salvo): nomade, falida. O save continua v10.
+   ===================================================================== */
+const NOMADE41 = {GRUPO:4};
+function semeiaNomades41(){
+ const H=state.ents.filter(e=>e.sp==='human'&&e.hp>0&&!e.vid&&e.id!==state.playerId&&P40(e)); if(H.length<NOMADE41.GRUPO*2) return 0;
+ const c=H[(Math.random()*H.length)|0], g=H.slice().sort((a,b)=>Math.hypot(a.x-c.x,a.y-c.y)-Math.hypot(b.x-c.x,b.y-c.y)).slice(0,NOMADE41.GRUPO);
+ for(const e of g){ const p=P40(e); p.nomade=true; p.semT=state.time-NOM40.ESPERA; }    // já decide no primeiro passo
+ e40().nomades0=g.length; return g.length;
+}
+{ const _gw=generateWorld; generateWorld=function(){ const r=_gw.apply(this,arguments); try{ semeiaNomades41(); }catch(err){ v31Err(err); } return r; }; }
+/* filho de nômade que nasce sem cidade também é nômade */
+{ const _pn=povoNascido; povoNascido=function(e){ const r=_pn.apply(this,arguments);
+  try{ const ps=(e.parents||[]).map(id=>byId.get(id)).filter(Boolean); if(!e.vid&&ps.some(p=>nomade41(p))&&P40(e)) P40(e).nomade=true; }catch(err){ v31Err(err); } return r; }; }
+/* dois nômades que se casam continuam nômades (a cidade nasce do acampamento, fase 7) */
+{ const _pu=pairUp; pairUp=function(a,b){
+  try{ if(!a.vid&&!b.vid&&nomade41(a)&&nomade41(b)&&!a.partner&&!b.partner&&!(nom40(a)&&nom40(a).m==='acampar')&&!(nom40(b)&&nom40(b).m==='acampar')){
+    a.partner=b.id; b.partner=a.id; pushLog(`💞 ${a.name} e ${b.name} formaram uma família nômade`); return true; } }catch(err){ v31Err(err); }
+  return _pu.apply(this,arguments); }; }
+/* família falida: mora na cidade, mas está sem casa */
+let fal41RR=0;
+function falidaTick41(){
+ const V=state.villages; if(!V.length) return; const v=V[(fal41RR++)%V.length]; if(!v||!v.e40) return;
+ for(const e of members(v)){ const p=P40(e); if(!p||!isAdultH(e)||e.id===state.playerId) continue;
+  const sem=homeOf(e,v)<0;
+  if(!sem){ p.casa41=true; if(p.falida) p.falida=false; continue; }
+  if(!p.falida){ p.falida=true; const pr=e.partner&&byId.get(e.partner);                 // quem acabou de chegar e espera a 1ª casa também conta, mas só avisa quem perdeu a casa
+   if(p.casa41&&!(pr&&P40(pr)&&P40(pr).falida)) pushLog(`🏚️ A família de ${e.name} perdeu a casa e está falida em ${v.name}, mas continua morando na cidade`, false); }
+ }
+}
+{ const _t=e40Tick; e40Tick=function(){ _t(); try{ falidaTick41(); }catch(err){ v31Err(err); } }; }
+{ const _ui=updateInfo; updateInfo=function(){ _ui.apply(this,arguments); try{ if(state.infoKind!=='ent') return; const e=byId.get(state.follow); const p=e&&P40(e); if(!p) return; const el=$('infoLines'); if(!el||el.querySelector('.v41p')) return;
+  const t=p.falida?'🏚️ Família falida (sem casa, mora na cidade)':p.nomade&&!e.vid?'🧭 Nômade'+(p.nom?` · ${p.nom.m==='acampar'?'acampado':'viajando'}`:''):''; if(t) el.insertAdjacentHTML('beforeend',`<div class="v41p">${t}</div>`); }catch(err){ v31Err(err); } }; }
+Object.assign(window.MV40, {NOMADE41, semeiaNomades41, falidaTick41, nomade41});
 selectTool('terrain');
 renderSaves();
 resize();
