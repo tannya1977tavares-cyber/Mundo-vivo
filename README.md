@@ -65,7 +65,7 @@ No **modo deus** você usa pincéis de terreno, natureza, chuva e animais. No **
 | Versão | Destaque | Relatório |
 |---|---|---|
 | v40 | 🏘️ Povos nas cidades (ingleses, Romani, judeus, brasileiros; slot 5 reservado), casas com a cara de cada povo, 9 níveis sociais pelo dinheiro, rei intolerante ou que aceita bairros, save v10 | [ler](relatorios/v40-relatorio.md) |
-| v41 | 🏘️ Etnias concluídas: ruas dentro das cidades, grupos nômades e acampamentos que viram cidade, família falida fica na cidade, festas de cada povo, hipódromo com apostas, estradas de uma pista com curvas de 45°, casas 2.5D (módulo CASA25) | [ler](relatorios/v41-relatorio.md) |
+| v41 | 🏘️ Etnias concluídas: ruas dentro das cidades, grupos nômades e acampamentos que viram cidade, família falida fica na cidade, festas de cada povo, hipódromo com apostas, estradas de uma pista com curvas de 45°, casas 2.5D (módulo CASA25), bairros com pátios e festas (módulo BAIRROS) | [ler](relatorios/v41-relatorio.md) |
 | v39 | 👼 Querubim em pixel art com ordens pessoais, trânsito de carroças e carros nas cidades (com atropelamento), ruas sem saída ligadas, mais casas e vias seguindo os quadrados | [ler](relatorios/v39-relatorio.md) |
 | v38 | 😇 O Anjo: o semideus invoca um anjo que obedece ordens (menu de poderes, chat em português e modo administrador) | [ler](relatorios/v38-relatorio.md) |
 | v37 | Uma casa por casal, cidades densas com sobrados, 8 fábricas e 13 itens novos | [ler](relatorios/v37-relatorio.md) |

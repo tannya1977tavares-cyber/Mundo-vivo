@@ -147,7 +147,7 @@ function casa25Sprite(tier, people, variant, col){
  cv=hqUp(cv,true); c25Cache.set(key,cv); return cv;
 }
 { const _ad=artDraw; artDraw=function(a,H){ if(!MV41.casa25||!artPovo(H)||!H.n40) return _ad(a,H);
-  try{ const ow=villageById(state.cells[a].owner), img=casa25Sprite(Math.max(0,Math.min(8,H.n40-1)), H.povo, artVariant(a), ow?SHIRTS[ow.color]:null);
+  try{ const ow=villageById(state.cells[a].owner), img=casa25Sprite(Math.max(0,Math.min(8,H.n40-1)), (typeof povoDesenho41==="function"?povoDesenho41(a,H):H.povo), artVariant(a), ow?SHIRTS[ow.color]:null);
    const S=BUILDS[H.type].size||1, x=a%state.w, y=(a/state.w)|0, kk=cellPx*S*1.25/img.lw, w=img.lw*kk, h=img.lh*kk;
    const sx=(x+S/2-viewL)*cellPx, sy=(y+S-viewT)*cellPx; ctx.drawImage(hi4(img,kk),sx-w/2,sy-h+kk*3,w,h); H._scr=[sx,sy,w,h]; return true; }
   catch(err){ v31Err(err); return _ad(a,H); } }; }

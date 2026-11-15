@@ -48,6 +48,66 @@ Números de linha = `versoes/mundo-vivo-v39.html`.
 - Teste: 60 quadros por segundo com e sem o CASA25; 10x = 9,99; nenhum erro no console. Save não muda (continua v10).
 - NÃO VERIFICADO: celular de verdade.
 
+## v41.2 · Bairros com pátios internos (módulo BAIRROS do Bruno)
+
+Código: `codigo/v41-bairros.js`. O módulo entrou **sem mudanças**; só a ligação com o jogo é nova. Nada disso vai no save (o save continua v10, `packCell` e a ordem dos campos não mudaram, a construção das casas não mudou).
+
+### Nomes conferidos (grep, linhas da v41)
+
+| O que o pedido chama de | Nome real no jogo |
+|---|---|
+| onde a cidade é desenhada | `renderWorld` (7518); o chão das vilas é `v28Ground` (14304), chamado antes das casas |
+| loop de renderização | `render` (7798) → `renderWorld`; casas e pessoas vão na lista `items` ordenada por Y (`items.sort`, 7584) |
+| calendário (mês/dia) | `cal()` (12146) devolve `{m, d, wd, h}`; `m` começa em 0, `d` em 1 |
+| lista de rituais | `FESTAS` (24909): datas `{m, d}` e Shabat semanal (`semanalAgora40`, 24924) |
+| campo de etnia das casas | `state.houses[a].povo` (chave do `PEOPLES`/`CASA25`: `ingles`, `cigano`, `judeu`…); povo da pessoa em `w7.e40.et` |
+| bairros da cidade (fase 5) | `bairros40` (24664), em `v.e40.bairros` |
+| desenho da casa | `artDraw` (24512) → `casa25Sprite` (25292) |
+| criação / carregamento da cidade | `foundVillage` (2432), `load` (10546) |
+
+### O que foi feito
+
+- **Planejar (passo 3):** cada cidade chama `BAIRROS.planejar(cidade)` ao ser fundada, ao carregar o save e de novo quando a cidade cresce. Fica num `Map` na memória (`bairroPlanos41`). A vila não tem `semente`, então ela vem do id da vila.
+- **Entrada do módulo:** `x, y` = centro da vila; `raio` = tamanho da vila arredondado para um número ímpar de blocos (assim a praça cai no meio); `etnias` = os bairros da fase 5, repetidos pelo tamanho de cada bairro (bairro maior = mais blocos).
+- **Bloco ativo:** só aparece o bloco que tem casa da vila ou um pedaço da cidade (os outros ficam no mato, sem desenho).
+- **Pátio livre:** o módulo põe o pátio no meio do bloco. Como as casas continuam onde o jogo constrói, se tiver casa ali o pátio vai para o lugar livre mais perto do meio (só muda `bloco.patio`, não o módulo).
+- **Desenho (passo 4):** antes das casas: chão do bloco (com a cor do povo, bem clara), mureta baixa em volta, ruas de terra entre os blocos e depois `BAIRROS.desenharPatio(...)`. O chão é guardado numa imagem e só é refeito quando muda.
+- **Casas (passo 5):** casa dentro de um bloco é desenhada no `CASA25.draw` com `people = bloco.people`. A ordem por Y continua a mesma.
+- **Rituais (passo 6):** o jogo não usa `{mes, dia}`, então só a chamada foi adaptada: a tabela é montada a partir de `FESTAS` com `mes = m` e `dia = d` do calendário; o Shabat conta como "hoje" enquanto está acontecendo.
+- **Ruas que os NPCs usam:** as ruas e pátios dos blocos contam como rua para a regra da fase 6. Assim os NPCs andam pelas ruas desenhadas, e não pela grama.
+- Para desligar tudo: `MV41.BAIRRO41.LIGADO=false`.
+
+### Testes
+
+- **Cidade com 3 bairros de povos diferentes:** rei que aceita todos, moradores judeus, romani e brasileiros. Blocos ativos: 1 judeu, 2 romani, 1 brasileiro. As casas de cada bloco aparecem com o povo do bloco.
+- **Pátio vazio fora da data:** em 20/jan, nenhum pátio romani ou brasileiro tinha festa. O pátio judeu tinha, porque era sábado antes das 18h (Shabat), o que está certo.
+- **Pátio com festa na data:** em 24/mai (Santa Sara Kali), os 2 pátios romani mostram palco, bandeirola e fogueira. Em 24/jun (festa junina), os 3 pátios brasileiros mostram a festa.
+- **10x:** 60 quadros por segundo com e sem as casas 2.5D. Velocidade real em 10x: 10,01. Nenhum erro no console.
+- **Save:** o save da v39 carrega na v41 com as mesmas 4 vilas, 17 pessoas e 6 casas.
+
+### Varredura de bugs e comportamento dos NPCs
+
+Foram 3 mundos novos (2 grandes e 1 médio), cada um rodando a 100x por 4 a 5 minutos. Uma foto do estado era tirada a cada 10 segundos.
+
+- **Erros no console:** 0.
+- **Problemas de posição:** nenhuma pessoa com posição inválida, fora do mapa ou dentro da água funda sem barco.
+- **Fome:** ninguém ficou parado com fome. No máximo 3 pessoas com fome baixa ao mesmo tempo, e elas iam comer.
+- **NPC preso:** ninguém ficou parado com caminho por mais de 30 segundos, a não ser os guardas no posto. Eles ficam parados de propósito, vigiando o portão ou a praça.
+- **Bug corrigido:** na primeira versão da ligação, todos os blocos saíam do mesmo povo, porque os bairros da fase 5 não guardam peso. Agora o peso é o tamanho do bairro.
+- **Comportamento observado (não são bugs):**
+  - De dia, 40 a 60% dos adultos ficam "passeando" (idle com rótulo); os outros fazem colheita, lenha, mina, obra e entregas. À noite, quase todos ficam sem tarefa, dormindo em casa (toque de recolher).
+  - Os adultos sem cidade são quase todos mercenários de guilda (20 de 29 no teste médio), alguns eremitas e trabalhadores livres. Isso já é do jogo.
+  - O grupo de 4 nômades do começo entra numa cidade logo no início: nos 2 mundos em que medi, já não havia nômade sem cidade depois de cerca de 1 minuto e meio a 100x (um deles chegou a montar acampamento antes).
+  - Famílias falidas: de 0 a 10 ao mesmo tempo, numa população de até 180 pessoas.
+
+### NÃO VERIFICADO
+
+1. Celular de verdade (o APK de teste foi refeito e conferido, mas não foi instalado).
+2. A imagem do Bruno mostra várias casas em volta de um pátio dentro de cada bloco. Isso exigiria mudar onde o jogo constrói as casas, o que o pedido proíbe (passo 7). Hoje as casas continuam nos lotes de sempre, e o bloco se ajusta em volta delas. Por isso, em cidade pequena, pode ter bloco com uma casa só.
+3. Os NPCs ainda não vão para o pátio na festa: o pátio só muda o desenho. Os efeitos da festa continuam os da fase 8.
+4. A praça redonda da v28 pode ficar por cima de um bloco quando a cidade é grande.
+5. Os blocos são sorteados de novo quando os bairros da fase 5 mudam (por exemplo, quando muda o rei). O desenho pode mudar de povo nesse momento.
+
 ## Checklist manual (para testar no celular ou no navegador)
 
 1. **Mundo novo:** criar um mundo "Grande". Ver cidades com casas de povos diferentes (bandeirolas Romani, mezuzá judaica, azulejo brasileiro, viga em X inglesa).
